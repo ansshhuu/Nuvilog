@@ -18,8 +18,20 @@ create table if not exists public.products (
     raw_input_ref  varchar(1024) not null,   -- file path, url, or "inline"
     category       varchar(100)  not null,
     status         varchar(30)   not null default 'ingested',
+
+    -- Written by the enrichment pass (stage 6): a commerce-ready description
+    -- generated from the verified fields only. Nullable — a product ingested
+    -- before stage 6 existed, or one whose enrichment call failed, still has
+    -- a complete scored field set and is not invalid without this.
+    description    text,
+
     created_at     timestamptz   not null default now()
 );
+
+-- Migration for projects created before stage 6. Safe to re-run: this whole
+-- file is idempotent, and `add column if not exists` is a no-op on a project
+-- built from the create table above.
+alter table public.products add column if not exists description text;
 
 create index if not exists idx_products_category on public.products (category);
 

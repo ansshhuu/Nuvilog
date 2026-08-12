@@ -244,6 +244,55 @@ def _static_llm(response: dict):
     return FakeLLMClient()
 
 
+def test_ingest_runs_stage_6_and_returns_the_description(ingested):
+    """`fake_llm` answers every call with sample_response.json, which has no
+    "description" key — so the stage runs, degrades to an empty description
+    rather than inventing one, and does not fail the ingest."""
+    assert ingested["enrichment_error"] is None
+    assert ingested["description"] == ""
+    assert ingested["enriched_fields"] == []
+
+
+def test_get_product_exposes_the_description(client, ingested):
+    body = client.get(f"/api/products/{ingested['product_id']}").json()
+
+    assert "description" in body
+    assert body["description"] == ingested["description"]
+
+
+def test_enrichment_failure_does_not_lose_the_scored_ingest(
+    client, sample_pdf_path, monkeypatch, db_session
+):
+    """Extraction produces what a reviewer needs; enrichment only adds copy on
+    top. Losing the whole ingest over a missing paragraph would be the wrong
+    trade, so the failure is reported alongside the result."""
+    _, cleanup = db_session
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("gemini exploded")
+
+    monkeypatch.setattr(main, "enrich", boom)
+
+    with open(sample_pdf_path, "rb") as f:
+        response = client.post(
+            "/api/ingest",
+            data={"category": "fasteners", "input_type": "pdf"},
+            files={"file": ("sample_fastener_spec.pdf", f, "application/pdf")},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    cleanup.append(body["product_id"])
+
+    assert body["description"] is None
+    assert "gemini exploded" in body["enrichment_error"]
+    assert len(body["fields"]) == len(main.registry.get("fasteners").fields)
+
+    uploaded = Path(body["raw_input_ref"]) if body.get("raw_input_ref") else None
+    if uploaded and uploaded.exists():
+        uploaded.unlink()
+
+
 def test_get_product_404s_for_an_unknown_id(client):
     response = client.get("/api/products/00000000-0000-0000-0000-000000000000")
 

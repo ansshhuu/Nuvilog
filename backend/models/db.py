@@ -184,6 +184,7 @@ class Product(_Record):
         "raw_input_ref",  # file path, url, or "inline"
         "category",
         "status",
+        "description",  # stage 6 enrichment output; null until it has run
         "created_at",
     )
     __timestamp_columns__ = ("created_at",)

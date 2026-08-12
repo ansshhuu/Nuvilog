@@ -1,4 +1,4 @@
-"""Integration test: the full stage 1 -> 3 -> 2 -> 4 -> 5 -> persist path.
+"""Integration test: the full stage 1 -> 3 -> 2 -> 4 -> 5 -> 6 -> persist path.
 
 Real PDF parsing, real schema loading, real confidence scoring, real
 contradiction detection, real writes to Supabase. The only thing faked is the
@@ -12,6 +12,7 @@ import pytest
 from models.db import Product, ProductField, ValidationFlag
 from pipeline.confidence_engine import score_fields
 from pipeline.contradiction_detector import detect_contradictions
+from pipeline.enrichment import enrich
 from pipeline.extractor import extract_fields
 from pipeline.input_handler import handle_input
 from pipeline.schema_registry import registry
@@ -186,6 +187,158 @@ def test_deleting_a_product_cascades_to_its_flags(conflict_run, db_session):
     session.delete(Product, product.id)
 
     assert session.list_by(ValidationFlag, product_id=product.id) == []
+
+
+# ---------------------------------------------------------------------------
+# Stage 6, end-to-end
+# ---------------------------------------------------------------------------
+class _RecordingLLM:
+    """Enrichment stub that captures the prompt it was handed.
+
+    Same mock-the-LLM-call pattern as everywhere else in the suite, with the
+    prompt kept, because on this stage the prompt is what is under test.
+    """
+
+    model = "fake-model"
+
+    def __init__(self, response: dict):
+        self._response = response
+        self.calls: list[tuple[str, str]] = []
+
+    def complete_json(self, system_prompt, user_prompt, temperature=0.1) -> dict:
+        self.calls.append((system_prompt, user_prompt))
+        return self._response
+
+
+@pytest.fixture
+def enriched_conflict_run(conflict_run):
+    """Stage 6 over the real stage 4 + 5 output of the conflicting fixture."""
+    raw_doc, schema, scored, flags = conflict_run
+    llm = _RecordingLLM(
+        {
+            "description": (
+                "A stainless steel 18-8 hex head cap screw measuring 25.4 mm in "
+                "length. It uses an external hex drive and a passivated, plain "
+                "finish, and conforms to ANSI B18.2.1."
+            ),
+            "filled_fields": {},
+        }
+    )
+    result = enrich(scored, schema, llm, flags)
+    return raw_doc, schema, scored, flags, llm, result
+
+
+def test_enrichment_prompt_excludes_every_flagged_field(enriched_conflict_run):
+    """The real fixture, the real detector output: `diameter` is contradicted
+    (6.35 vs 12.7 mm) and `package_quantity` is out of range (0). Neither may
+    be handed to the copywriter as a fact to work from."""
+    *_, llm, _ = enriched_conflict_run
+
+    assert len(llm.calls) == 1, "enrichment is one LLM call, separate from extraction"
+    prompt = llm.calls[0][1]
+
+    assert "6.35" not in prompt
+    assert "diameter" not in prompt
+    assert "package_quantity" not in prompt
+    assert '"0"' not in prompt
+
+
+def test_enrichment_prompt_still_carries_the_fields_that_are_sound(
+    enriched_conflict_run,
+):
+    """The filter has to be a filter, not a blanket refusal — the description
+    is worthless if nothing survives it."""
+    *_, llm, _ = enriched_conflict_run
+    prompt = llm.calls[0][1]
+
+    assert "Stainless Steel 18-8 (A2)" in prompt
+    assert "25.4 mm" in prompt  # length, restated consistently, never flagged
+    assert "ANSI B18.2.1" in prompt
+
+
+def test_the_field_set_sent_to_the_llm_is_exactly_the_unflagged_trusted_one(
+    enriched_conflict_run,
+):
+    """Stated as a set rather than a handful of substrings, so a future field
+    slipping through the filter fails here instead of going unnoticed."""
+    _, _, scored, flags, llm, _ = enriched_conflict_run
+    prompt = llm.calls[0][1]
+
+    flagged = {f.field_name for f in flags}
+    expected = {
+        f.field_name
+        for f in scored
+        if f.confidence_level in ("high", "medium") and f.field_name not in flagged
+    }
+
+    named = {f.field_name for f in scored if f.field_name in prompt}
+    assert named == expected
+    assert flagged, "fixture should produce flags, or this test proves nothing"
+    assert flagged.isdisjoint(named)
+
+
+def test_generated_description_asserts_no_flagged_value(enriched_conflict_run):
+    *_, result = enriched_conflict_run
+
+    assert result.description
+    assert "6.35" not in result.description
+    assert "12.7" not in result.description
+    # The package quantity of 0 is out of range; a listing must not claim it.
+    assert "0 per box" not in result.description
+
+
+def test_enrichment_gap_fills_land_as_unverified_ai_generated_rows(
+    conflict_run, db_session
+):
+    """The trust labelling, checked against what Postgres actually stored."""
+    raw_doc, schema, scored, flags = conflict_run
+    session, cleanup = db_session
+
+    # thread_pitch is optional; drop its value so the stage has a real gap.
+    gapped = [f for f in scored if f.field_name != "thread_pitch"]
+    llm = _RecordingLLM(
+        {"description": "A stainless hex cap screw.", "filled_fields": {"thread_pitch": "1.27 mm"}}
+    )
+    result = enrich(gapped, schema, llm, flags)
+
+    assert [f.field_name for f in result.filled_fields] == ["thread_pitch"]
+
+    product = Product(
+        raw_input_type="text",
+        raw_input_ref=raw_doc.source_ref,
+        category=schema.category,
+        status="scored",
+        description=result.description,
+    )
+    session.add(product)
+    session.flush()
+    cleanup.append(product.id)
+
+    for enriched in result.filled_fields:
+        session.add(
+            ProductField(
+                product_id=product.id,
+                field_name=enriched.field_name,
+                value=enriched.value,
+                confidence_level=enriched.confidence_level,
+                evidence_type="none",
+                is_ai_generated=enriched.is_ai_generated,
+            )
+        )
+    session.commit()
+
+    from models.db import SupabaseSession
+
+    reader = SupabaseSession()
+    stored = reader.get(Product, product.id)
+
+    assert stored.description == result.description
+    pitch = next(f for f in stored.fields if f.field_name == "thread_pitch")
+    assert pitch.value == "1.27 mm"
+    assert pitch.confidence_level == "unverified"
+    assert pitch.is_ai_generated is True
+    assert pitch.source_snippet is None
+    reader.close()
 
 
 def test_pipeline_result_persists_to_supabase_and_reads_back(scored_run, db_session):

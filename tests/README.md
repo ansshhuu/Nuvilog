@@ -9,10 +9,11 @@ tests/
     test_schema_registry.py            stage 3
     test_confidence_engine.py          stage 4
     test_contradiction_detector.py     stage 5
+    test_enrichment.py                 stage 6
     test_review_ordering.py            finding severity order (contradiction > unverified)
     test_db_layer.py                   Supabase persistence facade, against a fake client
   integration/
-    test_pipeline_end_to_end.py        stages 1 -> 3 -> 2 -> 4 -> 5 -> persisted to Supabase
+    test_pipeline_end_to_end.py        stages 1 -> 3 -> 2 -> 4 -> 5 -> 6 -> persisted to Supabase
     test_api_ingest.py                 POST /api/ingest through the real FastAPI app
   fixtures/
     sample_fastener_spec.pdf              synthetic spec sheet (copy of backend/data/samples/)
@@ -97,6 +98,22 @@ It is a `.txt`, not a second PDF: the input handler normalizes both to the same
 `RawDocument`, so it exercises stage 5 identically while staying diffable in
 review and needing no reportlab step to regenerate.
 
+### Why the stage 6 tests assert on the prompt, not the output
+
+Enrichment's job is to *not* say certain things, and a canned LLM response can
+satisfy that by accident. A test that only read the returned description would
+pass just as happily against an implementation that fed every contradicted value
+to the model and got lucky — so the load-bearing assertions read the user prompt
+the stub was actually called with, and fail if an excluded value appears in it at
+all.
+
+The conflict fixture is what makes this a real test rather than a tautology: it
+produces a genuine `contradiction` on `diameter` and `out_of_range` on
+`package_quantity` from the real detector, and
+`test_the_field_set_sent_to_the_llm_is_exactly_the_unflagged_trusted_one` states
+the expected prompt contents as a *set* derived from stage 4 and 5 output, so a
+future field slipping past the filter fails loudly instead of going unnoticed.
+
 ## Database used by the integration tests
 
 **A real Supabase project** — not a local Postgres container.
@@ -133,6 +150,7 @@ stages sit at:
 
 | module | coverage |
 |---|---|
+| `pipeline/enrichment.py` | 100% (unit tests alone; no credentials needed) |
 | `pipeline/extractor.py` | 100% |
 | `pipeline/schema_registry.py` | 100% |
 | `pipeline/types.py` | 100% |
@@ -140,12 +158,11 @@ stages sit at:
 | `pipeline/confidence_engine.py` | 98% |
 | `pipeline/input_handler.py` | 88% (the uncovered lines are the OCR fallback, which needs a scanned PDF and a tesseract binary) |
 | `models/db.py` | 92% |
-| `main.py` | 89% |
+| `main.py` | 90% |
 
-`enrichment.py` and `batch_runner.py` report 0% and are expected to: they are
-stage 6–7 stubs that raise `NotImplementedError` and nothing imports them yet.
-They drag the repo-wide total down, which is why the per-module numbers above
-are the ones to read.
+`batch_runner.py` reports 0% and is expected to: it is a stage 7 stub that raises
+`NotImplementedError` and nothing imports it yet. It drags the repo-wide total
+down, which is why the per-module numbers above are the ones to read.
 
 `pipeline/llm_client.py` is ~50% by design — the half that isn't covered is the
 real network call, which no test is allowed to make.
