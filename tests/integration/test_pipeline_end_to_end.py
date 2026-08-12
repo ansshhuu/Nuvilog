@@ -1,15 +1,17 @@
-"""Integration test: the full stage 1 -> 3 -> 2 -> 4 -> persist path.
+"""Integration test: the full stage 1 -> 3 -> 2 -> 4 -> 5 -> persist path.
 
-Real PDF parsing, real schema loading, real confidence scoring, real writes
-to Supabase. The only thing faked is the Gemini call — see tests/README.md
-for why (CI runs on every push; the API quota is free-tier).
+Real PDF parsing, real schema loading, real confidence scoring, real
+contradiction detection, real writes to Supabase. The only thing faked is the
+Gemini call — see tests/README.md for why (CI runs on every push; the API
+quota is free-tier).
 """
 from __future__ import annotations
 
 import pytest
 
-from models.db import Product, ProductField
+from models.db import Product, ProductField, ValidationFlag
 from pipeline.confidence_engine import score_fields
+from pipeline.contradiction_detector import detect_contradictions
 from pipeline.extractor import extract_fields
 from pipeline.input_handler import handle_input
 from pipeline.schema_registry import registry
@@ -22,6 +24,16 @@ def scored_run(sample_pdf_path, fake_llm):
     schema = registry.get("fasteners")
     extraction = extract_fields(raw_doc, schema, fake_llm)
     return raw_doc, schema, score_fields(extraction, raw_doc)
+
+
+@pytest.fixture
+def conflict_run(conflict_spec_text, fake_llm_conflict):
+    """Stages 1 -> 3 -> 2 -> 4 -> 5 over the self-contradicting spec sheet."""
+    raw_doc = handle_input("text", conflict_spec_text)
+    schema = registry.get("fasteners")
+    extraction = extract_fields(raw_doc, schema, fake_llm_conflict)
+    scored = score_fields(extraction, raw_doc)
+    return raw_doc, schema, scored, detect_contradictions(scored, raw_doc, schema)
 
 
 def test_pipeline_produces_one_scored_field_per_schema_field(scored_run):
@@ -63,6 +75,117 @@ def test_high_confidence_snippets_really_appear_in_the_source(scored_run):
             snippet = " ".join((field.source_snippet or "").lower().split())
             assert snippet, f"{field.field_name} scored high with no snippet"
             assert snippet in normalized_source, f"{field.field_name} snippet is not in the source"
+
+
+# ---------------------------------------------------------------------------
+# Stage 5, end-to-end
+# ---------------------------------------------------------------------------
+def test_conflict_fixture_raises_both_flag_types(conflict_run):
+    """One document, both checks: the reseller summary restates the diameter
+    as 12.7 mm, and the package quantity of 0 is below the schema minimum."""
+    _, _, _, flags = conflict_run
+    by_type = {f.issue_type: f for f in flags}
+
+    assert set(by_type) == {"contradiction", "out_of_range"}
+    assert by_type["contradiction"].field_name == "diameter"
+    assert "6.35 mm" in by_type["contradiction"].message
+    assert "12.7 mm" in by_type["contradiction"].message
+    assert by_type["out_of_range"].field_name == "package_quantity"
+
+
+def test_conflict_detection_does_not_touch_the_scored_fields(conflict_run):
+    """Stage 5 reports; it never rewrites what stage 4 decided."""
+    _, _, scored, _ = conflict_run
+    by_name = {f.field_name: f for f in scored}
+
+    assert by_name["diameter"].value == "6.35 mm"
+    assert by_name["diameter"].confidence_level == "high"
+    assert by_name["package_quantity"].value == "0"
+
+
+def test_consistently_restated_fields_are_not_flagged(conflict_run):
+    """The same fixture restates length, material and finish identically in
+    both sections. Flagging those would make the stage noise."""
+    _, _, _, flags = conflict_run
+
+    flagged = {f.field_name for f in flags}
+    assert flagged.isdisjoint({"length", "material", "finish", "product_name"})
+
+
+def test_clean_fixture_flags_the_llms_own_bad_values(scored_run):
+    """The PDF agrees with itself, so every flag here comes from extraction
+    disagreeing with the source: a fabricated finish and a quantity lifted
+    from the Notes line. No range flags — every value is plausible."""
+    raw_doc, schema, scored = scored_run
+
+    flags = detect_contradictions(scored, raw_doc, schema)
+
+    assert {f.field_name for f in flags} == {"finish", "package_quantity"}
+    assert {f.issue_type for f in flags} == {"contradiction"}
+
+
+def test_flags_persist_to_supabase_and_read_back(conflict_run, db_session):
+    raw_doc, schema, scored, flags = conflict_run
+    session, cleanup = db_session
+
+    product = Product(
+        raw_input_type="text",
+        raw_input_ref=raw_doc.source_ref,
+        category=schema.category,
+        status="scored",
+    )
+    session.add(product)
+    session.flush()
+    cleanup.append(product.id)
+
+    for flag in flags:
+        session.add(
+            ValidationFlag(
+                product_id=product.id,
+                field_name=flag.field_name,
+                issue_type=flag.issue_type,
+                message=flag.message,
+            )
+        )
+    session.commit()
+
+    from models.db import SupabaseSession
+
+    reader = SupabaseSession()
+    stored = reader.get(Product, product.id)
+    stored_flags = {f.issue_type: f for f in stored.flags}
+
+    assert set(stored_flags) == {"contradiction", "out_of_range"}
+    assert stored_flags["contradiction"].field_name == "diameter"
+    assert "12.7 mm" in stored_flags["contradiction"].message
+    reader.close()
+
+
+def test_deleting_a_product_cascades_to_its_flags(conflict_run, db_session):
+    raw_doc, schema, _, flags = conflict_run
+    session, _ = db_session
+
+    product = Product(
+        raw_input_type="text",
+        raw_input_ref=raw_doc.source_ref,
+        category=schema.category,
+        status="scored",
+    )
+    session.add(product)
+    session.flush()
+    session.add(
+        ValidationFlag(
+            product_id=product.id,
+            field_name="diameter",
+            issue_type="contradiction",
+            message=flags[0].message,
+        )
+    )
+    session.commit()
+
+    session.delete(Product, product.id)
+
+    assert session.list_by(ValidationFlag, product_id=product.id) == []
 
 
 def test_pipeline_result_persists_to_supabase_and_reads_back(scored_run, db_session):

@@ -3,9 +3,9 @@ Nuvilog FastAPI app.
 
 Currently wires stage 1 (input handler) -> stage 3 (schema registry,
 used to know what to extract) -> stage 2 (extraction) -> stage 4
-(confidence engine) end-to-end, and persists the result. Contradiction
-detection, enrichment, and batch mode are stubbed in their own modules
-and not yet called from here — see pipeline/contradiction_detector.py etc.
+(confidence engine) -> stage 5 (contradiction detection) end-to-end, and
+persists the result. Enrichment and batch mode are stubbed in their own
+modules and not yet called from here — see pipeline/enrichment.py etc.
 """
 from __future__ import annotations
 
@@ -17,9 +17,10 @@ from typing import Optional
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from models.db import Product, ProductField, get_db, init_db
+from models.db import Product, ProductField, ValidationFlag, get_db, init_db
 from models.db import SupabaseSession as Session
 from pipeline.confidence_engine import score_fields
+from pipeline.contradiction_detector import detect_contradictions
 from pipeline.extractor import extract_fields
 from pipeline.input_handler import handle_input
 from pipeline.llm_client import LLMClient
@@ -37,6 +38,58 @@ app.add_middleware(
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# How findings rank when they are shown to a reviewer.
+#
+# "The source says something different" is a stronger signal than "the source
+# says nothing at all": a contradiction points at a specific line to go read,
+# while an unverified value only means the evidence check found nothing. A
+# field can carry both — a fabricated value that the source explicitly
+# contradicts is scored `unverified` by stage 4 *and* flagged `contradiction`
+# by stage 5 — and in that case the contradiction is the headline.
+#
+# Anything surfacing findings should order by this, including the review UI
+# when it gets built. Both endpoints below already do.
+SEVERITY_ORDER = {"contradiction": 0, "out_of_range": 1, "unverified": 2}
+
+
+def _rank(issue_type: str) -> int:
+    return SEVERITY_ORDER.get(issue_type, len(SEVERITY_ORDER))
+
+
+def _review_findings(scored_fields, flags) -> list[dict]:
+    """Everything a reviewer should look at, most severe first.
+
+    Merges the two sources a reviewer cares about — stage 5's validation flags
+    and stage 4's unverified fields — into one ranked list, so the client
+    doesn't have to re-derive the precedence and get it wrong.
+
+    Sorting is stable, so findings of equal severity keep the order they came
+    in (schema field order for both inputs).
+    """
+    findings = [
+        {
+            "field_name": flag.field_name,
+            "issue_type": flag.issue_type,
+            "message": flag.message,
+        }
+        for flag in flags
+    ]
+
+    findings += [
+        {
+            "field_name": field.field_name,
+            "issue_type": "unverified",
+            "message": (
+                f"'{field.field_name}' has no support anywhere in the source — "
+                "AI-suggested, not fact."
+            ),
+        }
+        for field in scored_fields
+        if field.confidence_level == "unverified"
+    ]
+
+    return sorted(findings, key=lambda finding: _rank(finding["issue_type"]))
 
 
 @app.on_event("startup")
@@ -72,7 +125,8 @@ async def ingest(
     db: Session = Depends(get_db),
 ) -> dict:
     """Run stage 1 (input handler) + stage 2 (extraction) + stage 4
-    (confidence engine) on one product and persist the scored fields."""
+    (confidence engine) + stage 5 (contradiction detection) on one product
+    and persist the scored fields and any validation flags."""
     try:
         schema = registry.get(category)
     except ValueError as e:
@@ -94,6 +148,7 @@ async def ingest(
         raise HTTPException(status_code=502, detail=f"Extraction failed: {e}")
 
     scored = score_fields(extraction, raw_doc)
+    flags = detect_contradictions(scored, raw_doc, schema)
 
     product = Product(
         raw_input_type=input_type,
@@ -117,6 +172,16 @@ async def ingest(
                 is_ai_generated=f.is_ai_generated,
             )
         )
+
+    for flag in flags:
+        db.add(
+            ValidationFlag(
+                product_id=product.id,
+                field_name=flag.field_name,
+                issue_type=flag.issue_type,
+                message=flag.message,
+            )
+        )
     db.commit()
 
     return {
@@ -125,6 +190,10 @@ async def ingest(
         "raw_text_preview": raw_doc.raw_text[:500],
         "table_count": len(raw_doc.tables),
         "fields": [f.model_dump() for f in scored],
+        "flags": sorted(
+            (f.model_dump() for f in flags), key=lambda flag: _rank(flag["issue_type"])
+        ),
+        "review_findings": _review_findings(scored, flags),
     }
 
 
@@ -153,6 +222,18 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> dict:
             }
             for f in product.fields
         ],
+        "flags": sorted(
+            (
+                {
+                    "field_name": f.field_name,
+                    "issue_type": f.issue_type,
+                    "message": f.message,
+                }
+                for f in product.flags
+            ),
+            key=lambda flag: _rank(flag["issue_type"]),
+        ),
+        "review_findings": _review_findings(product.fields, product.flags),
     }
 
 

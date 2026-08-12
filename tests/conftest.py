@@ -41,15 +41,34 @@ def sample_pdf_path(fixtures_dir: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
+def conflict_spec_text(fixtures_dir: Path) -> str:
+    """A spec sheet that contradicts itself, as raw text.
+
+    Plain text rather than a second PDF: the input handler normalizes both to
+    the same RawDocument, so a .txt exercises stage 5 identically while
+    staying diffable in review and needing no reportlab step to regenerate.
+    """
+    path = fixtures_dir / "sample_fastener_spec_with_conflict.txt"
+    assert path.exists(), f"missing test fixture: {path}"
+    return path.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
 def sample_llm_response(fixtures_dir: Path) -> dict:
     """The canned Gemini response used everywhere instead of a real call."""
     with open(fixtures_dir / "sample_response.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-@pytest.fixture
-def fake_llm(sample_llm_response: dict):
-    """A drop-in LLMClient that returns the fixture and records its prompts.
+@pytest.fixture(scope="session")
+def conflict_llm_response(fixtures_dir: Path) -> dict:
+    """Canned response for the self-contradicting fixture."""
+    with open(fixtures_dir / "sample_response_with_conflict.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _fake_llm_client(response: dict):
+    """A drop-in LLMClient that returns `response` and records its prompts.
 
     Nothing in the test suite is allowed to hit the real Gemini API — CI runs
     on every push and would burn quota (and be flaky) if it did.
@@ -62,9 +81,19 @@ def fake_llm(sample_llm_response: dict):
 
         def complete_json(self, system_prompt: str, user_prompt: str, temperature: float = 0.1) -> dict:
             self.calls.append((system_prompt, user_prompt))
-            return sample_llm_response
+            return response
 
     return FakeLLMClient()
+
+
+@pytest.fixture
+def fake_llm(sample_llm_response: dict):
+    return _fake_llm_client(sample_llm_response)
+
+
+@pytest.fixture
+def fake_llm_conflict(conflict_llm_response: dict):
+    return _fake_llm_client(conflict_llm_response)
 
 
 # ---------------------------------------------------------------------------

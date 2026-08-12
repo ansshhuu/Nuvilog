@@ -8,13 +8,17 @@ tests/
     test_extractor.py                  stage 2
     test_schema_registry.py            stage 3
     test_confidence_engine.py          stage 4
+    test_contradiction_detector.py     stage 5
+    test_review_ordering.py            finding severity order (contradiction > unverified)
     test_db_layer.py                   Supabase persistence facade, against a fake client
   integration/
-    test_pipeline_end_to_end.py        stages 1 -> 3 -> 2 -> 4 -> persisted to Supabase
+    test_pipeline_end_to_end.py        stages 1 -> 3 -> 2 -> 4 -> 5 -> persisted to Supabase
     test_api_ingest.py                 POST /api/ingest through the real FastAPI app
   fixtures/
-    sample_fastener_spec.pdf           synthetic spec sheet (copy of backend/data/samples/)
-    sample_response.json               canned Gemini response for that PDF
+    sample_fastener_spec.pdf              synthetic spec sheet (copy of backend/data/samples/)
+    sample_response.json                  canned Gemini response for that PDF
+    sample_fastener_spec_with_conflict.txt  spec sheet that contradicts itself (stage 5)
+    sample_response_with_conflict.json      canned Gemini response for that document
 ```
 
 ## Running
@@ -62,6 +66,37 @@ end-to-end:
 If a change to the confidence engine ever lets `finish` come back as anything
 other than `unverified`, the integration suite fails. That is the point.
 
+### The stage 5 conflict fixture
+
+The clean PDF is internally consistent, so it only exercises one of stage 5's
+two checks. It does exercise that one honestly: the source states
+`Finish: Passivated, plain` and `Package Quantity: 100 per box`, while
+`sample_response.json` claims `Hot-dip galvanized` and `500`, so the detector
+raises **two `contradiction` flags** — the extraction disagreeing with the
+document. No value in it is implausible enough to trip a range check, so it
+produces **no `out_of_range` flag**.
+
+`sample_fastener_spec_with_conflict.txt` covers both. It is the same spec sheet
+with a "Reseller summary" section appended that restates the thread diameter as
+`12.7 mm` against the spec block's `6.35 mm`, and a package quantity of `0`:
+
+| check | trigger | flag |
+|---|---|---|
+| cross-field | `Thread Diameter: 6.35 mm` (line 7) vs `Thread Diameter: 12.7 mm` (line 18) | `contradiction` on `diameter` |
+| range | `Package Quantity: 0`, below `valid_range.min: 1` in `fasteners.yaml` | `out_of_range` on `package_quantity` |
+
+Its companion `sample_response_with_conflict.json` is a *faithful* extraction —
+every value copied verbatim from the spec block. That separates the two failure
+modes the fixtures cover: the clean PDF tests a document that is right and an
+LLM that is wrong, this one tests an LLM that is right and a document that is
+wrong. The same section also restates `length`, `material` and `finish`
+identically, and a test asserts none of those are flagged — a detector that
+fires on consistent restatements would be worse than none.
+
+It is a `.txt`, not a second PDF: the input handler normalizes both to the same
+`RawDocument`, so it exercises stage 5 identically while staying diffable in
+review and needing no reportlab step to regenerate.
+
 ## Database used by the integration tests
 
 **A real Supabase project** — not a local Postgres container.
@@ -101,15 +136,16 @@ stages sit at:
 | `pipeline/extractor.py` | 100% |
 | `pipeline/schema_registry.py` | 100% |
 | `pipeline/types.py` | 100% |
+| `pipeline/contradiction_detector.py` | 99% (the one uncovered line is a defensive guard for an empty value, which the callers already filter out) |
 | `pipeline/confidence_engine.py` | 98% |
 | `pipeline/input_handler.py` | 88% (the uncovered lines are the OCR fallback, which needs a scanned PDF and a tesseract binary) |
 | `models/db.py` | 92% |
-| `main.py` | 88% |
+| `main.py` | 89% |
 
-`contradiction_detector.py`, `enrichment.py` and `batch_runner.py` report 0%
-and are expected to: they are stage 5–7 stubs that raise `NotImplementedError`
-and nothing imports them yet. They drag the repo-wide total down, which is why
-the per-module numbers above are the ones to read.
+`enrichment.py` and `batch_runner.py` report 0% and are expected to: they are
+stage 6–7 stubs that raise `NotImplementedError` and nothing imports them yet.
+They drag the repo-wide total down, which is why the per-module numbers above
+are the ones to read.
 
 `pipeline/llm_client.py` is ~50% by design — the half that isn't covered is the
 real network call, which no test is allowed to make.

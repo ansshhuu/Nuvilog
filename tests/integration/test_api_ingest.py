@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
-from models.db import Product, ProductField
+from models.db import Product, ProductField, ValidationFlag
 
 
 @pytest.fixture
@@ -132,6 +132,116 @@ def test_get_product_endpoint_returns_the_persisted_record(client, ingested):
     finish = next(f for f in body["fields"] if f["field_name"] == "finish")
     assert finish["confidence_level"] == "unverified"
     assert finish["is_ai_generated"] is True
+
+
+def test_ingest_runs_stage_5_and_returns_its_flags(ingested):
+    """The sample PDF states "Finish: Passivated, plain" and a package
+    quantity of 100; the canned extraction claims otherwise on both."""
+    flagged = {f["field_name"]: f for f in ingested["flags"]}
+
+    assert set(flagged) == {"finish", "package_quantity"}
+    assert flagged["finish"]["issue_type"] == "contradiction"
+    assert "Passivated, plain" in flagged["finish"]["message"]
+
+
+def test_ingest_persists_validation_flags(ingested, db_session):
+    session, _ = db_session
+
+    stored = session.list_by(ValidationFlag, product_id=ingested["product_id"])
+
+    assert {f.field_name for f in stored} == {"finish", "package_quantity"}
+    assert all(f.issue_type == "contradiction" for f in stored)
+    assert all(f.message for f in stored)
+
+
+def test_get_product_endpoint_exposes_the_flags(client, ingested):
+    """Flags that only exist in the ingest response would be write-only —
+    a reviewer fetching the product later has to see them too."""
+    body = client.get(f"/api/products/{ingested['product_id']}").json()
+
+    assert {f["field_name"] for f in body["flags"]} == {"finish", "package_quantity"}
+
+
+def test_contradiction_outranks_unverified_over_the_wire(ingested):
+    """`finish` is both: fabricated (stage 4 -> unverified) and explicitly
+    contradicted by the PDF (stage 5 -> contradiction). The contradiction has
+    to come first in what a reviewer is handed."""
+    findings = ingested["review_findings"]
+    finish = [f for f in findings if f["field_name"] == "finish"]
+
+    assert [f["issue_type"] for f in finish] == ["contradiction", "unverified"]
+    # And it leads the whole list — nothing weaker sorts above it.
+    assert findings[0]["issue_type"] == "contradiction"
+
+
+def test_get_product_applies_the_same_ordering(client, ingested):
+    """The endpoint a review UI actually calls, so it can't rank differently
+    from the ingest response."""
+    body = client.get(f"/api/products/{ingested['product_id']}").json()
+
+    ranks = [f["issue_type"] for f in body["review_findings"]]
+
+    assert ranks == sorted(ranks, key=lambda t: main.SEVERITY_ORDER[t])
+    assert ranks[0] == "contradiction"
+    assert "unverified" in ranks
+
+
+def test_out_of_range_sorts_between_contradiction_and_unverified(
+    client, conflict_spec_text, conflict_llm_response, monkeypatch, db_session
+):
+    _, cleanup = db_session
+    monkeypatch.setattr(main, "LLMClient", lambda *a, **k: _static_llm(conflict_llm_response))
+
+    body = client.post(
+        "/api/ingest",
+        data={
+            "category": "fasteners",
+            "input_type": "text",
+            "text_content": conflict_spec_text,
+        },
+    ).json()
+    cleanup.append(body["product_id"])
+
+    ranks = [f["issue_type"] for f in body["review_findings"]]
+
+    assert ranks[:2] == ["contradiction", "out_of_range"]
+
+
+def test_conflicting_document_ingests_with_both_flag_types(
+    client, conflict_spec_text, conflict_llm_response, monkeypatch, db_session
+):
+    session, cleanup = db_session
+    monkeypatch.setattr(
+        main, "LLMClient", lambda *a, **k: _static_llm(conflict_llm_response)
+    )
+
+    response = client.post(
+        "/api/ingest",
+        data={
+            "category": "fasteners",
+            "input_type": "text",
+            "text_content": conflict_spec_text,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    cleanup.append(body["product_id"])
+
+    assert {f["issue_type"] for f in body["flags"]} == {"contradiction", "out_of_range"}
+
+    stored = session.list_by(ValidationFlag, product_id=body["product_id"])
+    assert {f.issue_type for f in stored} == {"contradiction", "out_of_range"}
+
+
+def _static_llm(response: dict):
+    class FakeLLMClient:
+        model = "fake-model"
+
+        def complete_json(self, system_prompt, user_prompt, temperature=0.1):
+            return response
+
+    return FakeLLMClient()
 
 
 def test_get_product_404s_for_an_unknown_id(client):
