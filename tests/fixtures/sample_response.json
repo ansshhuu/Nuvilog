@@ -1,0 +1,60 @@
+{
+  "_comment": "Canned Gemini response for sample_fastener_spec.pdf, used in place of a real LLM call. Three fields are deliberately imperfect so a single fixture exercises all three confidence branches: package_quantity is mis-extracted from an unrelated number in the Notes line (-> medium), and finish carries a fabricated value with an invented snippet (-> unverified). See tests/README.md.",
+  "fields": {
+    "product_name": {
+      "value": "Hex Head Cap Screw, 1/4-20 x 1 in, Stainless Steel 18-8",
+      "source_snippet": "Product Name: Hex Head Cap Screw, 1/4-20 x 1 in, Stainless Steel 18-8",
+      "found": true
+    },
+    "material": {
+      "value": "Stainless Steel 18-8 (A2)",
+      "source_snippet": "Material: Stainless Steel 18-8 (A2)",
+      "found": true
+    },
+    "diameter": {
+      "value": "6.35 mm",
+      "source_snippet": "Thread Diameter: 6.35 mm (1/4 in nominal)",
+      "found": true
+    },
+    "length": {
+      "value": "25.4 mm",
+      "source_snippet": "Length: 25.4 mm (1 in)",
+      "found": true
+    },
+    "thread_pitch": {
+      "value": "1.27 mm",
+      "source_snippet": "Thread Pitch: 1.27 mm (20 TPI)",
+      "found": true
+    },
+    "head_type": {
+      "value": "Hex",
+      "source_snippet": "Head Type: Hex",
+      "found": true
+    },
+    "drive_type": {
+      "value": "External Hex Wrench",
+      "source_snippet": "Drive Type: External Hex Wrench",
+      "found": true
+    },
+    "finish": {
+      "value": "Hot-dip galvanized",
+      "source_snippet": "Finish: Hot-dip galvanized per ASTM A153",
+      "found": true
+    },
+    "grade": {
+      "value": "18-8 Stainless (not graded like alloy steel)",
+      "source_snippet": "Grade: 18-8 Stainless (not graded like alloy steel)",
+      "found": true
+    },
+    "standard": {
+      "value": "ANSI B18.2.1",
+      "source_snippet": "Standard: ANSI B18.2.1",
+      "found": true
+    },
+    "package_quantity": {
+      "value": "500",
+      "source_snippet": "structural load-bearing applications above 500 lbs shear.",
+      "found": true
+    }
+  }
+}

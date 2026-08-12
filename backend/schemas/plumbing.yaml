@@ -1,0 +1,51 @@
+category: plumbing
+display_name: Plumbing
+description: Pipes, fittings, valves, and connectors.
+fields:
+  - name: product_name
+    type: string
+    required: true
+    description: Full product name or title as it would appear on a listing.
+  - name: material
+    type: string
+    required: true
+    description: Base material, e.g. PVC, copper, brass, PEX, cast iron.
+  - name: pipe_diameter
+    type: dimension
+    unit: in
+    required: true
+    description: Nominal pipe/fitting diameter.
+    valid_range: {min: 0.125, max: 48}
+  - name: connection_type
+    type: string
+    required: false
+    description: e.g. threaded, slip, compression, solvent weld, push-fit.
+  - name: thread_standard
+    type: string
+    required: false
+    description: e.g. NPT, BSP.
+  - name: pressure_rating
+    type: dimension
+    unit: psi
+    required: false
+    description: Maximum rated working pressure.
+    valid_range: {min: 1, max: 10000}
+  - name: temperature_rating
+    type: dimension
+    unit: F
+    required: false
+    description: Maximum rated working temperature.
+    valid_range: {min: -40, max: 500}
+  - name: schedule
+    type: string
+    required: false
+    description: Pipe schedule/wall thickness class, e.g. "Schedule 40", "Schedule 80".
+  - name: certification
+    type: string
+    required: false
+    description: Applicable standards/certifications, e.g. NSF-61, ASTM D1785.
+  - name: package_quantity
+    type: integer
+    required: false
+    description: Number of units per package/box.
+    valid_range: {min: 1, max: 100000}

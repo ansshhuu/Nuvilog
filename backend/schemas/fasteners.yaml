@@ -1,0 +1,55 @@
+category: fasteners
+display_name: Fasteners
+description: Bolts, screws, nuts, washers, anchors, and related hardware.
+fields:
+  - name: product_name
+    type: string
+    required: true
+    description: Full product name or title as it would appear on a listing.
+  - name: material
+    type: string
+    required: true
+    description: Base material composition, e.g. "stainless steel 18-8", "zinc-plated carbon steel".
+  - name: diameter
+    type: dimension
+    unit: mm
+    required: true
+    description: Nominal thread/shank diameter.
+    valid_range: {min: 0.5, max: 100}
+  - name: length
+    type: dimension
+    unit: mm
+    required: true
+    description: Overall fastener length.
+    valid_range: {min: 1, max: 500}
+  - name: thread_pitch
+    type: dimension
+    unit: mm
+    required: false
+    description: Distance between threads.
+    valid_range: {min: 0.1, max: 10}
+  - name: head_type
+    type: string
+    required: false
+    description: e.g. hex, flat, pan, socket cap, button.
+  - name: drive_type
+    type: string
+    required: false
+    description: e.g. Phillips, slotted, hex socket, Torx.
+  - name: finish
+    type: string
+    required: false
+    description: Surface coating/finish, e.g. zinc, black oxide, hot-dip galvanized.
+  - name: grade
+    type: string
+    required: false
+    description: Strength grade or class, e.g. "Grade 8", "Class 10.9".
+  - name: standard
+    type: string
+    required: false
+    description: Applicable industry standard, e.g. "ISO 4014", "ANSI B18.2.1", "DIN 933".
+  - name: package_quantity
+    type: integer
+    required: false
+    description: Number of units per package/box.
+    valid_range: {min: 1, max: 100000}

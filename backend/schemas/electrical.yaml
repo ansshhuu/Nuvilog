@@ -1,0 +1,57 @@
+category: electrical
+display_name: Electrical
+description: Wiring devices, connectors, breakers, and low-voltage components.
+fields:
+  - name: product_name
+    type: string
+    required: true
+    description: Full product name or title as it would appear on a listing.
+  - name: voltage_rating
+    type: dimension
+    unit: V
+    required: true
+    description: Rated operating voltage.
+    valid_range: {min: 1, max: 100000}
+  - name: current_rating
+    type: dimension
+    unit: A
+    required: true
+    description: Rated operating current.
+    valid_range: {min: 0.01, max: 5000}
+  - name: wattage
+    type: dimension
+    unit: W
+    required: false
+    description: Rated power consumption/handling.
+    valid_range: {min: 0.1, max: 100000}
+  - name: wire_gauge
+    type: string
+    required: false
+    description: Wire gauge, e.g. "12 AWG".
+  - name: material
+    type: string
+    required: false
+    description: Conductor/housing material, e.g. copper, PVC-insulated.
+  - name: certification
+    type: string
+    required: false
+    description: Safety certifications, e.g. UL Listed, CE, RoHS.
+  - name: enclosure_rating
+    type: string
+    required: false
+    description: Ingress protection rating, e.g. NEMA 4X, IP65.
+  - name: phase
+    type: string
+    required: false
+    description: Single-phase or three-phase.
+  - name: frequency
+    type: dimension
+    unit: Hz
+    required: false
+    description: Rated operating frequency.
+    valid_range: {min: 40, max: 1000}
+  - name: package_quantity
+    type: integer
+    required: false
+    description: Number of units per package/box.
+    valid_range: {min: 1, max: 100000}
