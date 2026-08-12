@@ -94,6 +94,36 @@ def test_conflict_fixture_raises_both_flag_types(conflict_run):
     assert by_type["out_of_range"].field_name == "package_quantity"
 
 
+def test_unquoted_numbers_still_reach_stage_5_as_findings(
+    conflict_spec_text, fake_llm_unquoted_numbers
+):
+    """The live-model regression, carried the whole way through.
+
+    Same document as `conflict_run`, but the model answered its numeric fields
+    with bare JSON numbers. Extraction used to reject the response outright,
+    so the interesting assertion is not merely that it parses — it is that the
+    coerced values still produce the identical stage 4 and stage 5 verdicts a
+    quoted response does. A coercion that produced "0.0" or "6.35 mm" instead
+    of "0" and "6.35" would parse fine and quietly lose the range check.
+    """
+    raw_doc = handle_input("text", conflict_spec_text)
+    schema = registry.get("fasteners")
+
+    extraction = extract_fields(raw_doc, schema, fake_llm_unquoted_numbers)
+    scored = score_fields(extraction, raw_doc)
+    flags = detect_contradictions(scored, raw_doc, schema)
+
+    by_name = {f.field_name: f for f in scored}
+    assert by_name["package_quantity"].value == "0"
+    assert by_name["diameter"].value == "6.35"
+
+    by_type = {f.issue_type: f for f in flags}
+    assert by_type["out_of_range"].field_name == "package_quantity", (
+        "a package quantity of 0 must still be caught below the schema minimum"
+    )
+    assert by_type["contradiction"].field_name == "diameter"
+
+
 def test_conflict_detection_does_not_touch_the_scored_fields(conflict_run):
     """Stage 5 reports; it never rewrites what stage 4 decided."""
     _, _, scored, _ = conflict_run

@@ -29,6 +29,7 @@ Table definitions live in supabase/schema.sql — run it once per project.
 from __future__ import annotations
 
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional
 
@@ -42,10 +43,20 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 _client: Optional[Client] = None
+_thread_local = threading.local()
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _build_client() -> Client:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError(
+            "SUPABASE_URL and SUPABASE_KEY are not set. Copy .env.example to "
+            ".env and fill in your Supabase project URL and service key."
+        )
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def get_client() -> Client:
@@ -56,13 +67,28 @@ def get_client() -> Client:
     """
     global _client
     if _client is None:
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            raise RuntimeError(
-                "SUPABASE_URL and SUPABASE_KEY are not set. Copy .env.example to "
-                ".env and fill in your Supabase project URL and service key."
-            )
-        _client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        _client = _build_client()
     return _client
+
+
+def get_thread_client() -> Client:
+    """A Supabase client owned by the calling thread.
+
+    The client wraps an httpx session with its own connection pool, and
+    driving one pool from several threads at once produces sporadic
+    `Server disconnected` errors mid-request — which is exactly what stage 7
+    does, since it runs each item's blocking pipeline in a worker thread. One
+    client per thread removes the sharing rather than trying to lock around
+    it. Threads come from asyncio's bounded executor and are reused, so the
+    number of clients is the pool size, not the number of items.
+
+    Single-threaded callers should keep using get_client().
+    """
+    client = getattr(_thread_local, "client", None)
+    if client is None:
+        client = _build_client()
+        _thread_local.client = client
+    return client
 
 
 def reset_client() -> None:
@@ -72,6 +98,7 @@ def reset_client() -> None:
     """
     global _client, SUPABASE_URL, SUPABASE_KEY
     _client = None
+    _thread_local.client = None
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
@@ -337,7 +364,11 @@ def init_db() -> None:
 
 
 def get_db():
-    db = SupabaseSession()
+    # Thread-scoped client: FastAPI runs `def` endpoints in a worker threadpool
+    # and `async def` ones on the event loop, so request handlers do not all
+    # share one thread. See get_thread_client for why sharing a client across
+    # threads is not safe.
+    db = SupabaseSession(client=get_thread_client())
     try:
         yield db
     finally:

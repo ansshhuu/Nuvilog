@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+from pydantic import ValidationError
+
 from pipeline.extractor import SYSTEM_PROMPT, extract_fields
 from pipeline.schema_registry import registry
 from pipeline.types import RawDocument
@@ -120,6 +123,133 @@ def test_result_carries_category_and_the_raw_llm_response():
     assert result.category == "fasteners"
     assert result.raw_llm_response is not None
     assert json.loads(result.raw_llm_response) == response
+
+
+# ---------------------------------------------------------------------------
+# Loosely typed responses
+#
+# The prompt asks for strings, but a live model answers a numeric field with a
+# bare JSON number. That used to fail the whole item with a pydantic
+# validation error, losing every other field with it — and no canned fixture
+# caught it, because they all quote their numbers.
+# ---------------------------------------------------------------------------
+def test_an_unquoted_number_does_not_fail_the_extraction():
+    """The exact live failure: `"value": 0` for a package quantity of zero."""
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {
+            "fields": {
+                "package_quantity": {
+                    "value": 0,
+                    "source_snippet": "Package Quantity: 0 per box",
+                    "found": True,
+                }
+            }
+        }
+    )
+
+    result = extract_fields(_doc(), schema, llm)
+
+    quantity = next(f for f in result.fields if f.field_name == "package_quantity")
+    assert quantity.value == "0"
+    assert isinstance(quantity.value, str)
+
+
+def test_zero_is_kept_not_dropped_as_falsey():
+    """0 is a real extracted value — and the one stage 5 range-checks against
+    the schema minimum. Coercing it to None would erase an out_of_range flag."""
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {"fields": {"package_quantity": {"value": 0, "source_snippet": "0", "found": True}}}
+    )
+
+    result = extract_fields(_doc(), schema, llm)
+    quantity = next(f for f in result.fields if f.field_name == "package_quantity")
+
+    assert quantity.value == "0"
+    assert quantity.value is not None
+
+
+def test_a_float_keeps_its_decimal():
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {"fields": {"diameter": {"value": 6.35, "source_snippet": "6.35 mm", "found": True}}}
+    )
+
+    result = extract_fields(_doc(), schema, llm)
+    diameter = next(f for f in result.fields if f.field_name == "diameter")
+
+    assert diameter.value == "6.35"
+
+
+def test_a_boolean_becomes_its_json_spelling():
+    """Schemas can declare boolean fields, so the model can answer with one.
+    Lowercase, because that is the form it came over the wire as — str(True)
+    would render 'True', which appears nowhere in any source document."""
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {"fields": {"material": {"value": True, "source_snippet": None, "found": True}}}
+    )
+
+    result = extract_fields(_doc(), schema, llm)
+    material = next(f for f in result.fields if f.field_name == "material")
+
+    assert material.value == "true"
+
+
+def test_an_unquoted_number_in_the_snippet_is_coerced_too():
+    schema = registry.get("fasteners")
+    llm = StubLLM({"fields": {"package_quantity": {"value": 0, "source_snippet": 0, "found": True}}})
+
+    result = extract_fields(_doc(), schema, llm)
+    quantity = next(f for f in result.fields if f.field_name == "package_quantity")
+
+    assert quantity.source_snippet == "0"
+
+
+def test_null_still_means_not_found_rather_than_the_string_none():
+    """The coercion must not turn absence into a value — "None" as a string
+    would score as a real extracted claim downstream."""
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {"fields": {"material": {"value": None, "source_snippet": None, "found": False}}}
+    )
+
+    result = extract_fields(_doc(), schema, llm)
+    material = next(f for f in result.fields if f.field_name == "material")
+
+    assert material.value is None
+    assert material.source_snippet is None
+
+
+@pytest.mark.parametrize("structured", [{"mm": 25.4}, ["25.4 mm"]])
+def test_a_structured_value_is_still_rejected(structured):
+    """Coercion is for loose typing, not a wrong response shape. A dict or
+    list here means the model answered in the wrong format, and stringifying
+    it would put "{'mm': 25.4}" into the database looking like a real value."""
+    schema = registry.get("fasteners")
+    llm = StubLLM(
+        {"fields": {"length": {"value": structured, "source_snippet": None, "found": True}}}
+    )
+
+    with pytest.raises(ValidationError):
+        extract_fields(_doc(), schema, llm)
+
+
+def test_the_whole_unquoted_fixture_extracts_cleanly(fake_llm_unquoted_numbers):
+    """The regression as a whole document, not one field: a response where
+    every numeric field came back unquoted used to lose all eleven fields."""
+    schema = registry.get("fasteners")
+
+    result = extract_fields(_doc(), schema, fake_llm_unquoted_numbers)
+
+    assert [f.field_name for f in result.fields] == schema.field_names()
+    assert all(isinstance(f.value, str) for f in result.fields if f.value is not None)
+
+    by_name = {f.field_name: f for f in result.fields}
+    assert by_name["package_quantity"].value == "0"
+    assert by_name["diameter"].value == "6.35"
+    assert by_name["length"].value == "25.4"
 
 
 def test_response_without_a_fields_key_yields_all_fields_not_found():

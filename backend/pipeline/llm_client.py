@@ -14,7 +14,12 @@ from google.genai import types
 
 load_dotenv()
 
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+# Floating alias rather than a pinned version. `gemini-2.5-flash-lite` was
+# pinned here and became unavailable to new keys ("no longer available to new
+# users"), which failed every call with a 404 — including single ingest, not
+# just batch. The alias tracks the current Flash-Lite, which is what this
+# pipeline actually wants: the cheapest model that does structured JSON.
+DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 
 class LLMClient:

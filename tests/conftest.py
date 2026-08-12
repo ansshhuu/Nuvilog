@@ -67,6 +67,18 @@ def conflict_llm_response(fixtures_dir: Path) -> dict:
         return json.load(f)
 
 
+@pytest.fixture(scope="session")
+def unquoted_numbers_llm_response(fixtures_dir: Path) -> dict:
+    """Same document, but the model answered numeric fields with bare numbers.
+
+    A separate fixture rather than an edit to the one above: the existing
+    fixtures are asserted on all over the suite, and their quoted values are
+    load-bearing there. This one exists to cover the case they all miss.
+    """
+    with open(fixtures_dir / "sample_response_unquoted_numbers.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _fake_llm_client(response: dict):
     """A drop-in LLMClient that returns `response` and records its prompts.
 
@@ -94,6 +106,11 @@ def fake_llm(sample_llm_response: dict):
 @pytest.fixture
 def fake_llm_conflict(conflict_llm_response: dict):
     return _fake_llm_client(conflict_llm_response)
+
+
+@pytest.fixture
+def fake_llm_unquoted_numbers(unquoted_numbers_llm_response: dict):
+    return _fake_llm_client(unquoted_numbers_llm_response)
 
 
 # ---------------------------------------------------------------------------

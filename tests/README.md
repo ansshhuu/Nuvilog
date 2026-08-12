@@ -10,16 +10,20 @@ tests/
     test_confidence_engine.py          stage 4
     test_contradiction_detector.py     stage 5
     test_enrichment.py                 stage 6
+    test_batch_runner.py               stage 7 orchestration, every stage mocked
+    test_rate_limiter.py               provider rate limiting, on a fake clock
     test_review_ordering.py            finding severity order (contradiction > unverified)
     test_db_layer.py                   Supabase persistence facade, against a fake client
   integration/
     test_pipeline_end_to_end.py        stages 1 -> 3 -> 2 -> 4 -> 5 -> 6 -> persisted to Supabase
     test_api_ingest.py                 POST /api/ingest through the real FastAPI app
+    test_batch_ingest.py               a real batch of 5, and POST /api/ingest/batch
   fixtures/
     sample_fastener_spec.pdf              synthetic spec sheet (copy of backend/data/samples/)
     sample_response.json                  canned Gemini response for that PDF
     sample_fastener_spec_with_conflict.txt  spec sheet that contradicts itself (stage 5)
     sample_response_with_conflict.json      canned Gemini response for that document
+    sample_response_unquoted_numbers.json   same, with numbers as bare JSON numbers
 ```
 
 ## Running
@@ -156,13 +160,80 @@ stages sit at:
 | `pipeline/types.py` | 100% |
 | `pipeline/contradiction_detector.py` | 99% (the one uncovered line is a defensive guard for an empty value, which the callers already filter out) |
 | `pipeline/confidence_engine.py` | 98% |
-| `pipeline/input_handler.py` | 88% (the uncovered lines are the OCR fallback, which needs a scanned PDF and a tesseract binary) |
+| `pipeline/batch_runner.py` | 98% (the uncovered lines are the failure path of building a database session, which needs Supabase to be unreachable mid-batch) |
+| `pipeline/persistence.py` | 95% |
 | `models/db.py` | 92% |
-| `main.py` | 90% |
+| `main.py` | 88% |
+| `pipeline/input_handler.py` | 88% (the uncovered lines are the OCR fallback, which needs a scanned PDF and a tesseract binary) |
 
-`batch_runner.py` reports 0% and is expected to: it is a stage 7 stub that raises
-`NotImplementedError` and nothing imports it yet. It drags the repo-wide total
-down, which is why the per-module numbers above are the ones to read.
+### Why the stage 7 unit tests mock every stage
+
+`test_batch_runner.py` replaces all six pipeline stages with stand-ins. What
+those stages do to one product is already covered by their own suites and by
+`test_pipeline_end_to_end.py`; what nothing else covers is the three properties
+the batch runner *adds* — that every item is processed, that one item's failure
+doesn't take the batch with it, and that the concurrency bound bounds. Mocking
+the stages is what makes those testable in milliseconds and deterministically,
+including the concurrency assertion, which counts in-flight LLM calls through a
+probe standing in for the client and fails if the high-water mark exceeds the
+configured limit.
+
+There is a matching lower-bound assertion
+(`test_the_limit_is_actually_used_not_just_never_exceeded`) on purpose: a runner
+that quietly processed everything sequentially would satisfy "never exceeds the
+limit" perfectly, so the upper bound alone proves nothing.
+
+The real-pipeline half lives in `integration/test_batch_ingest.py`, which runs a
+batch of 5 mixing the clean PDF fixture with the self-contradicting one. Its
+load-bearing assertion is that the conflict fixture still produces both its
+`contradiction` and `out_of_range` flags as item 2 of 5 — batching is not
+allowed to cost stage 5.
+
+### Rate limiting is tested on a fake clock
+
+`RateLimiter` takes its `monotonic` and `sleep` as constructor arguments purely
+so `test_rate_limiter.py` can supply a clock it controls. Proving a
+*per-minute* limit against the real clock would mean a multi-minute suite whose
+assertions were timing-flaky on CI besides — the fake clock proves the same
+property exactly and in milliseconds, including the sliding-window assertion
+that no 60-second window ever contains more than the configured number of
+requests.
+
+Batches are rate limited to 15 requests/minute by default, so both batch suites
+lift the limit for everything that isn't specifically testing it: a 5-item batch
+would otherwise spend 36 seconds asleep for no assertion. The integration suite
+lifts it through `NUVILOG_GEMINI_RPM`, the way a deployment would, so the real
+configuration path stays under test rather than being bypassed.
+
+### Why there is a fixture with unquoted numbers
+
+Every other canned response quotes its numbers — `"value": "0"`. A live
+`gemini-flash-lite-latest` does not always: asked for a package quantity of
+zero it answers `"value": 0`, a bare JSON number. `ExtractedField.value` is
+typed `Optional[str]`, so that used to raise a pydantic validation error and
+fail the **entire item**, losing ten correctly extracted fields over one
+unquoted digit — in single ingest as much as in batch.
+
+The suite could not catch it, because the fixtures were all written by hand in
+the shape the prompt asks for rather than the shape a model actually replies
+in. `sample_response_unquoted_numbers.json` is that shape, and stage 2 now
+coerces scalars to strings (`types.py`). Keep its numbers unquoted; quoting
+them would silently retire the regression test.
+
+Coercion stops at scalars on purpose. A dict or list in `value` means the
+response is shaped wrongly, not typed loosely, and is still rejected — 
+stringifying it would put `"{'mm': 25.4}"` in the database looking like a real
+extracted value.
+
+### What the live-API check found, and why it isn't in this suite
+
+No test here calls the real Gemini API, so nothing here can catch a
+provider-side limit. That was checked once, by hand, with a throwaway script
+outside `tests/`: a batch of 20 at concurrency=4 with no rate limiter took **12
+HTTP 429s and lost 11 of its 20 items**, at a peak of 29 requests/60s against a
+budget of 15. With the limiter, the same batch took **zero** 429s at a peak of
+exactly 15. That measurement is why `rate_limiter.py` exists; see the stage 7
+section of the main README for the numbers in context.
 
 `pipeline/llm_client.py` is ~50% by design — the half that isn't covered is the
 real network call, which no test is allowed to make.
