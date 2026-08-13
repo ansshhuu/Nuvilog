@@ -55,3 +55,32 @@ export interface ProductDTO {
   flags: ValidationFlagDTO[]
   review_findings: ReviewFindingDTO[]
 }
+
+/**
+ * A row from GET /api/products. Identical to ProductDTO minus
+ * `review_findings`, which the list endpoint does not compute — the list only
+ * needs enough to derive each field's status for the density grid, and the
+ * detail endpoint is what the review panel reads.
+ * See backend/main.py::list_products.
+ */
+export type ProductSummaryDTO = Omit<ProductDTO, 'review_findings'>
+
+export interface ProductListDTO {
+  products: ProductSummaryDTO[]
+  total: number
+}
+
+/**
+ * The response both status transitions return —
+ * POST /api/products/{id}/approve and .../mark-for-review.
+ */
+export interface StatusChangeDTO {
+  id: string
+  status: string
+}
+
+/** products.status values the UI can write. */
+export const PRODUCT_STATUS = {
+  approved: 'approved',
+  needsReview: 'needs_review',
+} as const

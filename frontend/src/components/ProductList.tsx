@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, ListFilter, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { STATUS_TEXT_CLASS, statusShares, type Status } from '@/lib/status'
 import { StatusDot } from './StatusDot'
+import { InlineError, SkeletonBar } from './Feedback'
 
 const PAGE_SIZE = 7
 
 export interface ProductSummary {
+  /** The product's real id — a uuid — used for every request. */
   id: string
+  /** Short human-readable code shown in the list; see productCode(). */
+  code: string
   name: string
   fieldStatuses: Status[]
 }
@@ -18,6 +22,9 @@ export interface ProductListProps {
   selectedId?: string
   onSelect?: (id: string) => void
   onFilterClick?: () => void
+  loading?: boolean
+  error?: string | null
+  onRetry?: () => void
   className?: string
 }
 
@@ -55,17 +62,22 @@ function ProductRow({ product, isSelected, onSelect }: ProductRowProps) {
     <li>
       <button
         type="button"
+        data-product-id={product.id}
         aria-current={isSelected ? 'true' : undefined}
         onClick={() => onSelect?.(product.id)}
+        // Full outline when active, matching the batch card's selected state —
+        // the two panels show the same item, so they should agree on what
+        // "selected" looks like. Inactive rows keep a transparent border of the
+        // same width so nothing shifts by a pixel when selection moves.
         className={cn(
-          'flex w-full flex-col gap-1 border-l-2 px-4 py-3 text-left transition-colors',
+          'flex w-full flex-col gap-1 border px-4 py-3 text-left transition-colors',
           isSelected
-            ? 'border-l-selected bg-surface'
-            : 'border-l-transparent hover:bg-surface/60',
+            ? 'border-selected bg-surface'
+            : 'border-transparent hover:bg-surface/60',
         )}
       >
         <span className="truncate font-mono text-xs font-medium tracking-[0.04em] text-text-primary">
-          {product.id}
+          {product.code}
         </span>
         <span className="truncate font-mono text-2xs text-text-muted">
           {product.name}
@@ -133,6 +145,9 @@ export function ProductList({
   selectedId,
   onSelect,
   onFilterClick,
+  loading = false,
+  error = null,
+  onRetry,
   className,
 }: ProductListProps) {
   const [query, setQuery] = useState('')
@@ -154,6 +169,31 @@ export function ProductList({
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   )
+
+  const listRef = useRef<HTMLUListElement>(null)
+  const lastSelected = useRef(selectedId)
+
+  // Selection can arrive from outside (clicking a card in the batch strip), and
+  // the item is often on another page — without this the list would highlight
+  // a row nobody can see. Guarded on the id actually changing so that typing in
+  // the search box, which also rebuilds `filtered`, doesn't yank the user back
+  // to the selected item's page.
+  useEffect(() => {
+    if (selectedId === lastSelected.current) return
+    lastSelected.current = selectedId
+    if (!selectedId) return
+
+    const index = filtered.findIndex((p) => p.id === selectedId)
+    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE) + 1)
+  }, [selectedId, filtered])
+
+  // Runs after the page above has settled, so the row exists by now.
+  useEffect(() => {
+    if (!selectedId) return
+    listRef.current
+      ?.querySelector(`[data-product-id="${CSS.escape(selectedId)}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId, currentPage])
 
   return (
     <section
@@ -189,31 +229,50 @@ export function ProductList({
           onClick={onFilterClick}
           className="flex h-[33px] w-[33px] shrink-0 items-center justify-center border border-border bg-surface text-text-muted transition-colors hover:text-text-primary"
         >
-          <ListFilter size={12} strokeWidth={1.75} />
+          <Filter size={12} strokeWidth={1.75} />
         </button>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto">
-        {visible.map((product) => (
-          <ProductRow
-            key={product.id}
-            product={product}
-            isSelected={product.id === selectedId}
-            onSelect={onSelect}
-          />
-        ))}
-        {visible.length === 0 && (
-          <li className="px-4 py-6 font-mono text-2xs text-text-muted">
-            No products match "{query}"
-          </li>
-        )}
-      </ul>
+      {error ? (
+        <InlineError message={error} onRetry={onRetry} />
+      ) : loading ? (
+        <div role="status" aria-busy="true" aria-label="Loading products" className="px-4">
+          <span className="sr-only">Loading products</span>
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-1.5 py-3">
+              <SkeletonBar className="w-2/3" />
+              <SkeletonBar className="h-2 w-5/6" />
+              <SkeletonBar className="h-2 w-1/2" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+            {visible.map((product) => (
+              <ProductRow
+                key={product.id}
+                product={product}
+                isSelected={product.id === selectedId}
+                onSelect={onSelect}
+              />
+            ))}
+            {visible.length === 0 && (
+              <li className="px-4 py-6 font-mono text-2xs text-text-muted">
+                {query
+                  ? `No products match "${query}"`
+                  : 'No products have been ingested yet.'}
+              </li>
+            )}
+          </ul>
 
-      <Pagination
-        page={currentPage}
-        pageCount={pageCount}
-        onChange={setPage}
-      />
+          <Pagination
+            page={currentPage}
+            pageCount={pageCount}
+            onChange={setPage}
+          />
+        </>
+      )}
     </section>
   )
 }

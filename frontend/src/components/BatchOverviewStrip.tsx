@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { STATUS_TEXT_CLASS, statusShares, type Status } from '@/lib/status'
 import { StatusDotGrid } from './StatusDotGrid'
+import { InlineError, SkeletonBar } from './Feedback'
 
 export interface BatchSummary {
   id: string
@@ -15,6 +16,8 @@ export interface BatchOverviewStripProps {
   selectedBatchId?: string
   onSelectBatch?: (id: string) => void
   onAddBatch?: () => void
+  loading?: boolean
+  error?: string | null
   className?: string
 }
 
@@ -43,7 +46,7 @@ function BatchCard({ batch, isSelected, onSelect }: BatchCardProps) {
         {batch.name}
       </span>
 
-      <StatusDotGrid statuses={batch.fieldStatuses} columns={5} />
+      <StatusDotGrid statuses={batch.fieldStatuses} columns={9} />
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {shares.map(({ status, percent }) => (
@@ -77,11 +80,24 @@ function AddBatchCard({ onClick }: { onClick?: () => void }) {
   )
 }
 
+/** Card-shaped placeholder, so the strip keeps its height while loading. */
+function SkeletonCard() {
+  return (
+    <div className="flex w-[124px] shrink-0 flex-col gap-3 border border-border bg-surface p-3">
+      <SkeletonBar className="h-2.5 w-4/5" />
+      <SkeletonBar className="h-10 w-full" />
+      <SkeletonBar className="h-2 w-3/5" />
+    </div>
+  )
+}
+
 export function BatchOverviewStrip({
   batches,
   selectedBatchId,
   onSelectBatch,
   onAddBatch,
+  loading = false,
+  error = null,
   className,
 }: BatchOverviewStripProps) {
   return (
@@ -93,18 +109,29 @@ export function BatchOverviewStrip({
         Batch Overview
       </h2>
 
-      {/* Scrolls horizontally on overflow — cards never wrap. */}
-      <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
-        {batches.map((batch) => (
-          <BatchCard
-            key={batch.id}
-            batch={batch}
-            isSelected={batch.id === selectedBatchId}
-            onSelect={onSelectBatch}
-          />
-        ))}
-        <AddBatchCard onClick={onAddBatch} />
-      </div>
+      {error ? (
+        // No retry here: the product list below owns the same request and
+        // offers the retry, so two buttons would fire duplicate fetches.
+        <InlineError message={error} className="m-0" />
+      ) : (
+        /* Scrolls horizontally on overflow — cards never wrap. */
+        <div
+          className="flex items-stretch gap-3 overflow-x-auto pb-1"
+          aria-busy={loading || undefined}
+        >
+          {loading
+            ? Array.from({ length: 8 }, (_, i) => <SkeletonCard key={i} />)
+            : batches.map((batch) => (
+                <BatchCard
+                  key={batch.id}
+                  batch={batch}
+                  isSelected={batch.id === selectedBatchId}
+                  onSelect={onSelectBatch}
+                />
+              ))}
+          <AddBatchCard onClick={onAddBatch} />
+        </div>
+      )}
     </section>
   )
 }

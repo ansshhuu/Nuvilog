@@ -14,9 +14,12 @@
     --color-accent: #ff6b35;
 
     /* Selection / active-state indicator. Deliberately its own token: it
-       shares a hex with status-inferred today, but they mean different
-       things and either may move independently. */
-    --color-selected: #fbbf24;
+       shares a hex with the accent today, but they mean different things
+       (one is "you are here", the other is "primary action") and either may
+       move independently. It was amber until it was checked against the
+       mockup, where every active state — sidebar item, batch card, product
+       row, tab underline, current page — is the orange accent. */
+    --color-selected: #ff6b35;
 
     --color-status-verbatim: #4ade80;
     --color-status-inferred: #fbbf24;
@@ -39,6 +42,18 @@
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
+  }
+
+  /* Chrome on Windows draws default increment/decrement arrow buttons at the
+     ends of any scrollbar that has been customized via ::-webkit-scrollbar.
+     They are not ours — no component renders them — and they are what shows up
+     as the stray up/down arrows on the product list and field table, and as
+     the left/right arrows on the batch strip. Suppressing them here is the
+     only way to remove them; there is no per-container opt-out. */
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   ::-webkit-scrollbar-track {

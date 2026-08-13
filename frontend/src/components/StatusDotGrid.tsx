@@ -15,16 +15,19 @@ export interface StatusDotGridProps {
  */
 export function StatusDotGrid({
   statuses,
-  columns = 5,
+  columns = 9,
   className,
 }: StatusDotGridProps) {
   return (
+    // w-full, not w-fit: the 1fr tracks then distribute the card's inner width
+    // evenly, so the matrix fills the card edge to edge instead of clumping
+    // into a narrow block on the left.
     <div
-      className={cn('grid w-fit gap-[3px]', className)}
+      className={cn('grid w-full justify-items-start gap-y-[3px]', className)}
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {statuses.map((status, i) => (
-        <StatusDot key={i} status={status} size="xs" />
+        <StatusDot key={i} status={status} size="sm" />
       ))}
     </div>
   )

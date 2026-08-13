@@ -335,6 +335,28 @@ class SupabaseSession:
         response = query.execute()
         return [model._from_row(row, session=self) for row in (response.data or [])]
 
+    def update(self, model: type[_Record], pk: Any, **values: Any) -> Optional[_Record]:
+        """Patch columns on one row and return it as it now stands.
+
+        Like flush(), this writes immediately — there is no transaction to hold
+        it open (see the module docstring). PostgREST returns the updated rows,
+        so the caller gets the server's version rather than a locally patched
+        copy that might disagree with a column default or trigger.
+
+        Returns None when no row matched, which callers should treat as a 404
+        rather than a silent success.
+        """
+        response = (
+            self.client.table(model.__tablename__)
+            .update({column: _to_jsonable(v) for column, v in values.items()})
+            .eq("id", str(pk))
+            .execute()
+        )
+        rows = response.data or []
+        if not rows:
+            return None
+        return model._from_row(rows[0], session=self)
+
     def delete(self, model: type[_Record], pk: Any) -> None:
         self.client.table(model.__tablename__).delete().eq("id", str(pk)).execute()
 

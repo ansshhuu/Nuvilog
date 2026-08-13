@@ -7,6 +7,7 @@ import {
   sourceContext,
   type ReviewField,
 } from '@/lib/fields'
+import { InlineError, SkeletonBar } from './Feedback'
 
 export interface SourceTableRow {
   item: string
@@ -26,6 +27,8 @@ export interface SourceSnippetPanelProps {
   field: ReviewField | null
   sourceTable?: SourceTable | null
   onClose?: () => void
+  loading?: boolean
+  error?: string | null
   className?: string
 }
 
@@ -116,6 +119,8 @@ export function SourceSnippetPanel({
   field,
   sourceTable,
   onClose,
+  loading = false,
+  error = null,
   className,
 }: SourceSnippetPanelProps) {
   const context = field ? sourceContext(field) : null
@@ -123,8 +128,11 @@ export function SourceSnippetPanel({
   return (
     <aside
       aria-label="Source snippet"
+      // min-h-0 so the scrolling body below can actually shrink: without it a
+      // flex child defaults to min-height:auto and refuses to go below its
+      // content, which turns `overflow-y-auto` into clipping instead of scroll.
       className={cn(
-        'flex min-w-0 flex-col border border-border bg-background',
+        'flex min-h-0 min-w-0 flex-col border border-border bg-background',
         className,
       )}
     >
@@ -143,7 +151,23 @@ export function SourceSnippetPanel({
         </button>
       </div>
 
-      {!field ? (
+      {error ? (
+        <InlineError message={error} />
+      ) : loading ? (
+        <div
+          role="status"
+          aria-busy="true"
+          aria-label="Loading source"
+          className="flex flex-col gap-2 px-4 py-4"
+        >
+          <span className="sr-only">Loading source</span>
+          <SkeletonBar className="mb-2 h-2 w-1/2" />
+          <SkeletonBar className="h-16 w-full" />
+          <SkeletonBar className="mt-4 h-2 w-1/3" />
+          <SkeletonBar className="h-2 w-full" />
+          <SkeletonBar className="h-2 w-4/5" />
+        </div>
+      ) : !field ? (
         <EmptyState />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

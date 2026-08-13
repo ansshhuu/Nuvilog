@@ -356,6 +356,112 @@ def _parse_batch_items(items: Optional[str], default_category: Optional[str]) ->
     return batch_items
 
 
+def _field_payload(row: dict) -> dict:
+    return {
+        "field_name": row.get("field_name"),
+        "value": row.get("value"),
+        "confidence_level": row.get("confidence_level"),
+        "evidence_type": row.get("evidence_type"),
+        "source_snippet": row.get("source_snippet"),
+        "inference_chain": row.get("inference_chain"),
+        "is_ai_generated": row.get("is_ai_generated", False),
+    }
+
+
+def _flag_payload(row: dict) -> dict:
+    return {
+        "field_name": row.get("field_name"),
+        "issue_type": row.get("issue_type"),
+        "message": row.get("message"),
+    }
+
+
+@app.get("/api/products")
+def list_products(limit: int = 200, db: Session = Depends(get_db)) -> dict:
+    """Every product with its fields and flags, newest first.
+
+    Carries the full field and flag rows rather than a precomputed per-product
+    tally. The review UI already derives a field's status from
+    `confidence_level` plus any contradiction flag, and that precedence is
+    subtle enough (see SEVERITY_ORDER) that having a second implementation of
+    it — one for the list, one for the detail view — is how the two end up
+    disagreeing about the same product. One derivation, fed from both.
+
+    One round trip: PostgREST embeds the child tables via the foreign keys
+    declared in supabase/schema.sql, so this does not fan out per product.
+    """
+    response = (
+        db.client.table("products")
+        .select("*, product_fields(*), validation_flags(*)")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    products = []
+    for row in response.data or []:
+        fields = [_field_payload(f) for f in row.get("product_fields") or []]
+        flags = [_flag_payload(f) for f in row.get("validation_flags") or []]
+        products.append(
+            {
+                "id": row.get("id"),
+                "category": row.get("category"),
+                "description": row.get("description"),
+                "raw_input_type": row.get("raw_input_type"),
+                "raw_input_ref": row.get("raw_input_ref"),
+                "status": row.get("status"),
+                "created_at": row.get("created_at"),
+                "fields": fields,
+                "flags": sorted(flags, key=lambda flag: _rank(flag["issue_type"])),
+            }
+        )
+
+    return {"products": products, "total": len(products)}
+
+
+@app.post("/api/products/{product_id}/approve")
+def approve_product(product_id: str, db: Session = Depends(get_db)) -> dict:
+    """Mark a reviewed product as approved.
+
+    The only status transition the UI can make today. `status` is a plain
+    varchar with no CHECK constraint, so this deliberately writes one fixed
+    literal rather than accepting a status from the client — an endpoint that
+    took an arbitrary string would let a typo become a new status nothing
+    downstream recognises.
+
+    Idempotent: approving an already-approved product succeeds and returns the
+    same state, so a double-click is not an error.
+    """
+    updated = db.update(Product, product_id, status="approved")
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    return {
+        "id": updated.id,
+        "status": updated.status,
+    }
+
+
+@app.post("/api/products/{product_id}/mark-for-review")
+def mark_product_for_review(product_id: str, db: Session = Depends(get_db)) -> dict:
+    """Flag a product as needing another look.
+
+    Same shape and same reasoning as approve_product above: one fixed literal,
+    not a client-supplied status. The two are the only transitions the UI can
+    make, and they are mutually exclusive — writing either simply overwrites
+    the other, so a product marked for review can later be approved and vice
+    versa without a state machine in between.
+    """
+    updated = db.update(Product, product_id, status="needs_review")
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    return {
+        "id": updated.id,
+        "status": updated.status,
+    }
+
+
 @app.get("/api/products/{product_id}")
 def get_product(product_id: str, db: Session = Depends(get_db)) -> dict:
     product = db.get(Product, product_id)

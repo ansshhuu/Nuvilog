@@ -107,15 +107,49 @@ export function toReviewFields(
   })
 }
 
+/** "Page 1 - Table 1" -> "the specification table" */
+function locationPhrase(sourceLabel: string | null): string {
+  const label = sourceLabel?.toLowerCase() ?? ''
+  if (label.includes('table')) return 'the specification table'
+  if (label.includes('note')) return 'a note on the source document'
+  if (label.includes('text')) return 'a text block in the source document'
+  return 'the source document'
+}
+
+/** "product_name" -> "product name" */
+function readableFieldName(name: string): string {
+  return name.replace(/_/g, ' ').toLowerCase()
+}
+
 /**
- * The evidence behind a value, for the source panel's CONTEXT block.
+ * A one-line description of where a value came from, for the source panel's
+ * CONTEXT block.
  *
- * This is the stored `source_snippet` — the span the confidence engine matched
- * against the source text — not a generated sentence about it. When there is
- * no snippet, that absence is itself the answer.
+ * Every clause is a fixed translation of something the pipeline recorded — the
+ * derived status and the source location — in exactly the same spirit as the
+ * status names and `confidenceRationale` below. It describes the evidence; it
+ * never asserts anything about the part that the extraction did not determine,
+ * and it deliberately does not paraphrase or embellish the snippet itself. The
+ * verbatim `source_snippet` remains available via `sourceSnippet`, and the
+ * matched row stays highlighted in the table above the block — which is what
+ * "as shown above" refers to.
  */
 export function sourceContext(field: ReviewField): string | null {
-  return field.sourceSnippet
+  const what = readableFieldName(field.fieldName)
+  const where = locationPhrase(field.sourceLabel)
+
+  switch (field.status) {
+    case 'verbatim':
+      return `The ${what} is explicitly listed in ${where} as shown above.`
+    case 'inferred':
+      return field.field.inference_chain
+        ? `The ${what} is not stated directly. ${field.field.inference_chain}.`
+        : `The ${what} is not stated directly in ${where}; it was inferred from the surrounding context.`
+    case 'contradiction':
+      return `Conflicting values for the ${what} appear in ${where}.`
+    case 'unverified':
+      return `No clear mention of the ${what} was found in ${where}.`
+  }
 }
 
 /**
