@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: #0a0a0b;
+    --color-surface: #16171a;
+    --color-border: #2a2b2e;
+    --color-text-primary: #e4e4e7;
+    --color-text-muted: #8a8b90;
+    --color-accent: #ff6b35;
+
+    /* Selection / active-state indicator. Deliberately its own token: it
+       shares a hex with status-inferred today, but they mean different
+       things and either may move independently. */
+    --color-selected: #fbbf24;
+
+    --color-status-verbatim: #4ade80;
+    --color-status-inferred: #fbbf24;
+    --color-status-unverified: #f87171;
+    --color-status-contradiction: #a78bfa;
+
+    --color-scrollbar-thumb: #3a3b3f;
+    --color-scrollbar-thumb-hover: #55565b;
+  }
+
+  /* Themed scrollbars everywhere, rather than per-component: any container
+     that scrolls gets the dark treatment automatically, so a new overflow
+     area can't reintroduce a white OS scrollbar. Firefox reads the first
+     block; Chrome/Edge/Safari read the ::-webkit- rules. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar-thumb) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar-thumb);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-scrollbar-thumb-hover);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    /* Matches the `base` token — the mockup's body text, not browser 16px. */
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+}
