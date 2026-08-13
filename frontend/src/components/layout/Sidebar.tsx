@@ -6,6 +6,7 @@ import {
   GitBranch,
   LayoutGrid,
   Settings,
+  Upload,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils'
 
 export type NavItemId =
   | 'dashboard'
+  | 'ingest'
   | 'documents'
   | 'sources'
   | 'flags'
@@ -28,6 +30,9 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
+  // The nav had no upload entry before — Documents/Sources are both read
+  // views. Added rather than repurposed, so "ingest" is its own destination.
+  { id: 'ingest', label: 'Ingest New Data', icon: Upload },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'sources', label: 'Sources', icon: Database },
   { id: 'flags', label: 'Flagged', icon: AlertTriangle },

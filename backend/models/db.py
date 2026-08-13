@@ -252,6 +252,10 @@ class ValidationFlag(_Record):
         "field_name",
         "issue_type",  # contradiction | out_of_range | missing_required
         "message",
+        # jsonb: [{value, location, snippet}], one entry per conflicting value.
+        # Null on rows written before the column existed — readers must treat
+        # that as "unknown", not as "no conflicting values".
+        "mentions",
         "created_at",
     )
     __timestamp_columns__ = ("created_at",)

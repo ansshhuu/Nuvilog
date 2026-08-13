@@ -7,9 +7,11 @@ import { StatusDot } from './StatusDot'
 
 export interface FieldReviewTableProps {
   fields: ReviewField[]
-  /** Field currently shown in the right-hand source panel. */
-  selectedFieldName?: string
+  /** `key` of the field currently shown in the right-hand source panel. */
+  selectedFieldKey?: string
   onFieldSelect?: (field: ReviewField) => void
+  /** Opens the contradiction detail for a contradicted field. */
+  onInspectContradiction?: (field: ReviewField) => void
   className?: string
 }
 
@@ -51,20 +53,37 @@ interface FieldRowProps {
   field: ReviewField
   isSelected: boolean
   onSelect?: (field: ReviewField) => void
+  onInspectContradiction?: (field: ReviewField) => void
 }
 
-function FieldRow({ field, isSelected, onSelect }: FieldRowProps) {
+function FieldRow({
+  field,
+  isSelected,
+  onSelect,
+  onInspectContradiction,
+}: FieldRowProps) {
   const { status, reason, sourceLabel } = field
 
+  const isContradiction = status === 'contradiction'
+
   return (
-    <button
-      type="button"
+    // A div rather than a button: contradicted rows carry their own nested
+    // button, and interactive content cannot be nested inside a button. The
+    // role, tabIndex and key handler keep the row itself operable.
+    <div
       role="row"
+      tabIndex={0}
       aria-current={isSelected ? 'true' : undefined}
       onClick={() => onSelect?.(field)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect?.(field)
+        }
+      }}
       className={cn(
         COL,
-        'w-full min-w-0 border-b border-border px-5 py-3 text-left transition-colors',
+        'w-full min-w-0 cursor-pointer border-b border-border px-5 py-3 text-left transition-colors',
         isSelected ? 'bg-surface' : 'hover:bg-surface/60',
       )}
     >
@@ -82,7 +101,7 @@ function FieldRow({ field, isSelected, onSelect }: FieldRowProps) {
         {field.value ?? <span className="text-text-muted">—</span>}
       </span>
 
-      <span role="cell" className="flex min-w-0 items-center gap-2 pt-0.5">
+      <span role="cell" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
         <StatusDot status={status} />
         <span
           className={cn(
@@ -92,6 +111,23 @@ function FieldRow({ field, isSelected, onSelect }: FieldRowProps) {
         >
           {STATUS_LABEL[status]}
         </span>
+
+        {/* A separate affordance rather than repurposing the row click: the
+            row already means "show me the source", and a contradicted field
+            needs both — the evidence panel and the side-by-side comparison. */}
+        {isContradiction && onInspectContradiction && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onInspectContradiction(field)
+            }}
+            aria-label={`Inspect contradiction in ${formatFieldName(field.fieldName)}`}
+            className="shrink-0 border border-status-contradiction/50 px-1.5 py-px font-sans text-3xs uppercase tracking-[0.12em] text-status-contradiction transition-colors hover:bg-status-contradiction/10"
+          >
+            Resolve
+          </button>
+        )}
       </span>
 
       <span role="cell" className="flex min-w-0 items-start gap-2">
@@ -116,14 +152,15 @@ function FieldRow({ field, isSelected, onSelect }: FieldRowProps) {
           className="mt-[1px] shrink-0 text-text-muted"
         />
       </span>
-    </button>
+    </div>
   )
 }
 
 export function FieldReviewTable({
   fields,
-  selectedFieldName,
+  selectedFieldKey,
   onFieldSelect,
+  onInspectContradiction,
   className,
 }: FieldReviewTableProps) {
   return (
@@ -132,10 +169,11 @@ export function FieldReviewTable({
       <div role="rowgroup">
         {fields.map((field) => (
           <FieldRow
-            key={field.fieldName}
+            key={field.key}
             field={field}
-            isSelected={field.fieldName === selectedFieldName}
+            isSelected={field.key === selectedFieldKey}
             onSelect={onFieldSelect}
+            onInspectContradiction={onInspectContradiction}
           />
         ))}
       </div>

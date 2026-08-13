@@ -1,4 +1,8 @@
 import type {
+  BatchIngestResultDTO,
+  CategoriesDTO,
+  IngestResultDTO,
+  InputType,
   ProductDTO,
   ProductListDTO,
   ProductSummaryDTO,
@@ -86,6 +90,59 @@ export async function approveProduct(id: string): Promise<StatusChangeDTO> {
     `/api/products/${encodeURIComponent(id)}/approve`,
     { method: 'POST' },
   )
+}
+
+/** GET /api/categories — the schema registry, keyed by category id. */
+export async function fetchCategories(
+  signal?: AbortSignal,
+): Promise<CategoriesDTO> {
+  return request<CategoriesDTO>('/api/categories', { signal })
+}
+
+/**
+ * POST /api/ingest — one document through the whole pipeline.
+ *
+ * multipart/form-data, not JSON: the endpoint takes Form(...) fields and an
+ * UploadFile. `Content-Type` is deliberately not set — the browser has to add
+ * its own multipart boundary.
+ */
+export async function ingestOne(input: {
+  category: string
+  inputType: InputType
+  file?: File
+  text?: string
+  url?: string
+}): Promise<IngestResultDTO> {
+  const body = new FormData()
+  body.append('category', input.category)
+  body.append('input_type', input.inputType)
+  if (input.file) body.append('file', input.file)
+  if (input.text) body.append('text_content', input.text)
+  if (input.url) body.append('url', input.url)
+
+  return request<IngestResultDTO>('/api/ingest', { method: 'POST', body })
+}
+
+/**
+ * POST /api/ingest/batch — several files in one request.
+ *
+ * The endpoint types each upload from its filename extension and rejects
+ * anything but .pdf/.csv, so the caller must not send other formats.
+ * Synchronous on the backend: it holds the connection until every item is
+ * done, which is why callers need a generous timeout and a pending state.
+ */
+export async function ingestBatch(input: {
+  category: string
+  files: File[]
+}): Promise<BatchIngestResultDTO> {
+  const body = new FormData()
+  body.append('category', input.category)
+  for (const file of input.files) body.append('files', file)
+
+  return request<BatchIngestResultDTO>('/api/ingest/batch', {
+    method: 'POST',
+    body,
+  })
 }
 
 /** POST /api/products/{id}/mark-for-review — sets status to "needs_review". */

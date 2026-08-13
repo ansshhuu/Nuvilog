@@ -12,8 +12,12 @@ import { InlineError, SkeletonBar } from './Feedback'
 export interface SourceTableRow {
   item: string
   specification: string
-  /** Links the row back to a product field so it can be highlighted. */
-  fieldName?: string
+  /**
+   * Links the row back to a product field so it can be highlighted. The
+   * field's `key`, not its name — duplicate names exist, and matching on the
+   * name lit up every row sharing it.
+   */
+  fieldKey?: string
 }
 
 export interface SourceTable {
@@ -55,11 +59,11 @@ function EmptyState() {
 
 function SnippetTable({
   table,
-  activeFieldName,
+  activeFieldKey,
   statusColor,
 }: {
   table: SourceTable
-  activeFieldName: string
+  activeFieldKey: string
   statusColor: string
 }) {
   return (
@@ -76,7 +80,7 @@ function SnippetTable({
       </thead>
       <tbody>
         {table.rows.map((row, i) => {
-          const isActive = row.fieldName === activeFieldName
+          const isActive = row.fieldKey === activeFieldKey
           return (
             <tr
               key={`${row.item}-${i}`}
@@ -178,7 +182,7 @@ export function SourceSnippetPanel({
           {sourceTable && sourceTable.rows.length > 0 ? (
             <SnippetTable
               table={sourceTable}
-              activeFieldName={field.fieldName}
+              activeFieldKey={field.key}
               statusColor={STATUS_VAR[field.status]}
             />
           ) : (

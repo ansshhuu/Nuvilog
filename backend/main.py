@@ -373,6 +373,10 @@ def _flag_payload(row: dict) -> dict:
         "field_name": row.get("field_name"),
         "issue_type": row.get("issue_type"),
         "message": row.get("message"),
+        # None for rows written before the column existed — passed through as
+        # null rather than defaulted to [], so the client can tell "unknown"
+        # from "no conflicting values".
+        "mentions": row.get("mentions"),
     }
 
 
@@ -494,6 +498,9 @@ def get_product(product_id: str, db: Session = Depends(get_db)) -> dict:
                     "field_name": f.field_name,
                     "issue_type": f.issue_type,
                     "message": f.message,
+                    # Null on rows written before the column existed; see
+                    # _flag_payload for why that is passed through as-is.
+                    "mentions": f.mentions,
                 }
                 for f in product.flags
             ),

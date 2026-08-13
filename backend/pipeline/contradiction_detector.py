@@ -53,7 +53,7 @@ from __future__ import annotations
 import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from pipeline.confidence_engine import ScoredField
 from pipeline.schema_registry import CategorySchema, FieldDef
@@ -78,17 +78,31 @@ NUMERIC_TOLERANCE = 0.01
 NUMERIC_TYPES = ("dimension", "integer", "number")
 
 
+class Mention(BaseModel):
+    """One place a value for some attribute was stated.
+
+    `snippet` is the source line the value was read out of, kept so a reviewer
+    can see the wording rather than only a line number. It is None for the
+    extracted-value mention when stage 4 recorded no snippet — a fabricated
+    value has no line to quote.
+    """
+
+    value: str
+    location: str
+    snippet: str | None = None
+
+
 class Contradiction(BaseModel):
     field_name: str | None
     issue_type: Literal["contradiction", "out_of_range"]
     message: str
-
-
-class _Mention(BaseModel):
-    """One place a value for some attribute was stated."""
-
-    value: str
-    location: str
+    # One entry per conflicting value, in the same order `message` names them.
+    # Both are built from the same collapsed list (see _check_contradiction), so
+    # the prose and the structured data cannot drift apart.
+    #
+    # Empty for range findings: those are one value against a schema bound, not
+    # a disagreement between sources, so there are no sides to lay out.
+    mentions: list[Mention] = Field(default_factory=list)
 
 
 def _normalize(text: str) -> str:
@@ -111,20 +125,26 @@ def _leading_number(text: str) -> Optional[float]:
         return None
 
 
-def _collect_statements(raw_doc: RawDocument) -> list[tuple[str, _Mention]]:
+def _collect_statements(raw_doc: RawDocument) -> list[tuple[str, Mention]]:
     """Every `Label: value` statement in the document, as (label, mention).
 
     Table rows are folded in as statements too — a two-column spec table row
     is the same assertion as a labelled prose line, just laid out differently.
     """
-    statements: list[tuple[str, _Mention]] = []
+    statements: list[tuple[str, Mention]] = []
 
     for match in LABELED_STATEMENT_RE.finditer(raw_doc.raw_text):
         line_number = raw_doc.raw_text.count("\n", 0, match.start()) + 1
         statements.append(
             (
                 _normalize(match.group("label")),
-                _Mention(value=match.group("value").strip(), location=f"line {line_number}"),
+                Mention(
+                    value=match.group("value").strip(),
+                    location=f"line {line_number}",
+                    # The whole matched line: label and value together are what
+                    # makes the quote readable out of context.
+                    snippet=match.group(0).strip(),
+                ),
             )
         )
 
@@ -138,9 +158,12 @@ def _collect_statements(raw_doc: RawDocument) -> list[tuple[str, _Mention]]:
             statements.append(
                 (
                     _normalize(cells[0]),
-                    _Mention(
+                    Mention(
                         value=cells[1],
                         location=f"table {table_index}, row {row_index}",
+                        # Rebuilt as a readable row rather than the raw list,
+                        # so it quotes like the prose statements do.
+                        snippet=" | ".join(cells),
                     ),
                 )
             )
@@ -195,14 +218,14 @@ def _values_agree(first: str, second: str, field_def: FieldDef) -> bool:
     return first_norm in second_norm or second_norm in first_norm
 
 
-def _group_mentions(mentions: list[_Mention], field_def: FieldDef) -> list[list[_Mention]]:
+def _group_mentions(mentions: list[Mention], field_def: FieldDef) -> list[list[Mention]]:
     """Cluster mentions into groups that agree with each other.
 
     Greedy against each group's first member. Containment-based agreement
     isn't transitive, so this is order-dependent by nature; document order is
     used so the result stays deterministic for a given document.
     """
-    groups: list[list[_Mention]] = []
+    groups: list[list[Mention]] = []
     for mention in mentions:
         for group in groups:
             if _values_agree(group[0].value, mention.value, field_def):
@@ -213,16 +236,32 @@ def _group_mentions(mentions: list[_Mention], field_def: FieldDef) -> list[list[
     return groups
 
 
-def _describe(groups: list[list[_Mention]]) -> str:
-    return " vs ".join(
-        f'"{group[0].value}" ({", ".join(m.location for m in group)})' for group in groups
-    )
+def _collapse(groups: list[list[Mention]]) -> list[Mention]:
+    """One Mention per group of agreeing statements — i.e. per distinct value.
+
+    The group's first member supplies the value (it is the one every later
+    member was compared against), the locations are joined so a value stated in
+    three places still reads as one side of the conflict, and the snippet is the
+    first that exists — the extracted-value mention often has none.
+    """
+    return [
+        Mention(
+            value=group[0].value,
+            location=", ".join(m.location for m in group),
+            snippet=next((m.snippet for m in group if m.snippet), None),
+        )
+        for group in groups
+    ]
+
+
+def _describe(mentions: list[Mention]) -> str:
+    return " vs ".join(f'"{m.value}" ({m.location})' for m in mentions)
 
 
 def _check_contradiction(
     scored: ScoredField,
     field_def: FieldDef,
-    statements: list[tuple[str, _Mention]],
+    statements: list[tuple[str, Mention]],
 ) -> Optional[Contradiction]:
     aliases = _aliases(field_def, scored)
     mentions = [
@@ -230,19 +269,31 @@ def _check_contradiction(
     ]
 
     if scored.value and str(scored.value).strip():
-        mentions.insert(0, _Mention(value=str(scored.value).strip(), location="extracted value"))
+        mentions.insert(
+            0,
+            Mention(
+                value=str(scored.value).strip(),
+                location="extracted value",
+                # Stage 4's own evidence, when it had any. A fabricated value
+                # has no source line, and must not borrow one from elsewhere.
+                snippet=scored.source_snippet,
+            ),
+        )
 
     groups = _group_mentions(mentions, field_def)
     if len(groups) < 2:
         return None
 
+    collapsed = _collapse(groups)
+
     return Contradiction(
         field_name=field_def.name,
         issue_type="contradiction",
         message=(
-            f"Conflicting values for '{field_def.name}': {_describe(groups)}. "
+            f"Conflicting values for '{field_def.name}': {_describe(collapsed)}. "
             "Not auto-resolved — every value is recorded for a human to decide between."
         ),
+        mentions=collapsed,
     )
 
 

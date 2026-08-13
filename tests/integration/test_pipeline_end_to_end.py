@@ -7,6 +7,8 @@ quota is free-tier).
 """
 from __future__ import annotations
 
+from collections import Counter
+
 import pytest
 
 from models.db import Product, ProductField, ValidationFlag
@@ -15,6 +17,7 @@ from pipeline.contradiction_detector import detect_contradictions
 from pipeline.enrichment import enrich
 from pipeline.extractor import extract_fields
 from pipeline.input_handler import handle_input
+from pipeline.persistence import persist_product
 from pipeline.schema_registry import registry
 
 
@@ -368,6 +371,89 @@ def test_enrichment_gap_fills_land_as_unverified_ai_generated_rows(
     assert pitch.confidence_level == "unverified"
     assert pitch.is_ai_generated is True
     assert pitch.source_snippet is None
+    reader.close()
+
+
+def test_persisted_product_has_one_row_per_field_when_enrichment_fills_a_gap(
+    conflict_run, db_session
+):
+    """The duplication regression, asserted against what Postgres stored.
+
+    persist_product used to write the scored fields and then append stage 6's
+    gap fills as fresh rows, so any field extraction left empty and enrichment
+    filled ended up with two rows under one name — which the API returned and
+    the review table rendered twice.
+
+    The gap is made by blanking one optional field's value while keeping its
+    row, because that is the shape extraction actually produces: a row for
+    every schema field, some with no value. Removing the row instead would
+    exercise the insert branch and miss the bug entirely.
+    """
+    raw_doc, schema, scored, flags = conflict_run
+    session, cleanup = db_session
+
+    gapped = [
+        f.model_copy(
+            update={
+                "value": None,
+                "confidence_level": "unverified",
+                "evidence_type": "none",
+                "source_snippet": None,
+            }
+        )
+        if f.field_name == "thread_pitch"
+        else f
+        for f in scored
+    ]
+    assert any(
+        f.field_name == "thread_pitch" and f.value is None for f in gapped
+    ), "the gap must still be a row, or this test proves nothing"
+
+    llm = _RecordingLLM(
+        {
+            "description": "A stainless steel hex head cap screw.",
+            "filled_fields": {"thread_pitch": "1.27 mm"},
+        }
+    )
+    enrichment = enrich(gapped, schema, llm, flags)
+    assert [f.field_name for f in enrichment.filled_fields] == ["thread_pitch"], (
+        "stage 6 must actually fill the gap for this to test anything"
+    )
+
+    product = persist_product(
+        session,
+        input_type="text",
+        source_ref=raw_doc.source_ref,
+        category=schema.category,
+        scored=gapped,
+        flags=flags,
+        enrichment=enrichment,
+    )
+    cleanup.append(product.id)
+
+    # Read back through a fresh session: the assertion is about stored rows,
+    # not the objects still in memory.
+    from models.db import SupabaseSession
+
+    reader = SupabaseSession()
+    stored = reader.get(Product, product.id)
+
+    names = [f.field_name for f in stored.fields]
+    duplicated = {n: c for n, c in Counter(names).items() if c > 1}
+    assert not duplicated, f"one row per (product_id, field_name) expected: {duplicated}"
+    assert sorted(set(names)) == sorted(schema.field_names())
+
+    # And the surviving row is the enriched one, labelled as generated.
+    pitch = next(f for f in stored.fields if f.field_name == "thread_pitch")
+    assert pitch.value == "1.27 mm"
+    assert pitch.confidence_level == "unverified"
+    assert pitch.is_ai_generated is True
+    assert pitch.source_snippet is None
+
+    # An extracted field alongside it is untouched by the merge.
+    material = next(f for f in stored.fields if f.field_name == "material")
+    assert material.value == "Stainless Steel 18-8 (A2)"
+    assert material.confidence_level == "high"
     reader.close()
 
 

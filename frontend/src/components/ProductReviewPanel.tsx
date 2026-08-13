@@ -24,8 +24,9 @@ export interface ProductReviewPanelProps {
   fields: ReviewField[]
   sourceCount?: number
   noteCount?: number
-  selectedFieldName?: string
+  selectedFieldKey?: string
   onFieldSelect?: (field: ReviewField) => void
+  onInspectContradiction?: (field: ReviewField) => void
   loading?: boolean
   error?: string | null
   onRetry?: () => void
@@ -48,8 +49,9 @@ export function ProductReviewPanel({
   fields,
   sourceCount,
   noteCount,
-  selectedFieldName,
+  selectedFieldKey,
   onFieldSelect,
+  onInspectContradiction,
   loading = false,
   error = null,
   onRetry,
@@ -169,8 +171,9 @@ export function ProductReviewPanel({
             ) : (
               <FieldReviewTable
                 fields={fields}
-                selectedFieldName={selectedFieldName}
+                selectedFieldKey={selectedFieldKey}
                 onFieldSelect={onFieldSelect}
+                onInspectContradiction={onInspectContradiction}
               />
             )}
           </div>

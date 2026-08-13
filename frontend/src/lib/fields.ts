@@ -7,6 +7,16 @@ import type { ProductFieldDTO, ValidationFlagDTO } from './api-types'
  * one-line reason shown under a non-verbatim status.
  */
 export interface ReviewField {
+  /**
+   * Stable unique identity for this row.
+   *
+   * Not the field name: a product can carry two rows under the same name.
+   * persist_product writes the scored fields and then stage 6's gap-filled
+   * fields into the same table, so a field that extraction left empty and
+   * enrichment later filled appears twice. Keying or selecting on the name
+   * alone made React collide the duplicates and highlighted both at once.
+   */
+  key: string
   fieldName: string
   value: string | null
   status: Status
@@ -90,11 +100,12 @@ export function toReviewFields(
   flags: ValidationFlagDTO[],
   options: ToReviewFieldsOptions = {},
 ): ReviewField[] {
-  return fields.map((field) => {
+  return fields.map((field, index) => {
     const fieldFlags = flags.filter((f) => f.field_name === field.field_name)
     const status = deriveStatus(field, fieldFlags)
 
     return {
+      key: `${field.field_name}#${index}`,
       fieldName: field.field_name,
       value: field.value,
       status,

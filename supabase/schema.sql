@@ -68,6 +68,17 @@ create table if not exists public.validation_flags (
     created_at  timestamptz  not null default now()
 );
 
+-- One entry per conflicting value: [{"value", "location", "snippet"}], in the
+-- same order `message` names them. Written by stage 5 (contradiction_detector)
+-- so the review UI can lay the sides out side by side instead of parsing the
+-- prose message back apart.
+--
+-- Nullable, and null on every row written before this column existed. A reader
+-- must treat null as "unknown" and fall back to `message`; an empty array is a
+-- different statement — the finding has no sides, which is the case for
+-- out_of_range.
+alter table public.validation_flags add column if not exists mentions jsonb;
+
 create index if not exists idx_validation_flags_product_id on public.validation_flags (product_id);
 
 -- ---------------------------------------------------------------------------

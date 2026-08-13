@@ -24,10 +24,28 @@ export interface ProductFieldDTO {
   is_ai_generated: boolean
 }
 
+/** One side of a contradiction: a value, where it was stated, and the line. */
+export interface MentionDTO {
+  value: string
+  location: string
+  /** The source line the value was read out of. Null when none was recorded. */
+  snippet: string | null
+}
+
 export interface ValidationFlagDTO {
   field_name: string | null
   issue_type: IssueType
   message: string
+  /**
+   * One entry per conflicting value, in the order `message` names them.
+   *
+   * Three distinct states, and they mean different things:
+   *   array  — stage 5's structured output; render the sides.
+   *   []     — the finding has no sides (out_of_range).
+   *   null   — written before validation_flags.mentions existed. Unknown, not
+   *            empty: fall back to `message` and offer no per-side actions.
+   */
+  mentions: MentionDTO[] | null
 }
 
 /**
@@ -84,3 +102,44 @@ export const PRODUCT_STATUS = {
   approved: 'approved',
   needsReview: 'needs_review',
 } as const
+
+/**
+ * What the ingest pipeline can actually read.
+ * Mirrors backend/pipeline/types.py::InputType — note that XLSX is not in it.
+ */
+export type InputType = 'pdf' | 'csv' | 'text' | 'url'
+
+/** File extensions the pipeline accepts, derived from InputType. */
+export const ACCEPTED_EXTENSIONS = ['.pdf', '.csv'] as const
+
+/** One entry of GET /api/categories, keyed by category id. */
+export interface CategoryDTO {
+  display_name: string
+  description: string
+  fields: unknown[]
+}
+
+export type CategoriesDTO = Record<string, CategoryDTO>
+
+/** POST /api/ingest */
+export interface IngestResultDTO {
+  product_id: string
+  category: string
+  description: string | null
+  enrichment_error: string | null
+  raw_text_preview: string
+  table_count: number
+  fields: ProductFieldDTO[]
+  flags: ValidationFlagDTO[]
+  review_findings: ReviewFindingDTO[]
+}
+
+/** POST /api/ingest/batch */
+export interface BatchIngestResultDTO {
+  total: number
+  succeeded: number
+  failed: number
+  concurrency: number
+  product_ids: string[]
+  results: unknown[]
+}
