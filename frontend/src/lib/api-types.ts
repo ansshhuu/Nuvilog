@@ -112,11 +112,35 @@ export type InputType = 'pdf' | 'csv' | 'text' | 'url'
 /** File extensions the pipeline accepts, derived from InputType. */
 export const ACCEPTED_EXTENSIONS = ['.pdf', '.csv'] as const
 
+/** backend/pipeline/schema_registry.py::FieldDef.type */
+export type SchemaFieldType =
+  | 'string'
+  | 'integer'
+  | 'number'
+  | 'dimension'
+  | 'boolean'
+
+/** backend/pipeline/schema_registry.py::ValidRange */
+export interface ValidRangeDTO {
+  min: number | null
+  max: number | null
+}
+
+/** backend/pipeline/schema_registry.py::FieldDef, as returned in CategoryDTO.fields. */
+export interface SchemaFieldDTO {
+  name: string
+  type: SchemaFieldType
+  required: boolean
+  description: string
+  unit: string | null
+  valid_range: ValidRangeDTO | null
+}
+
 /** One entry of GET /api/categories, keyed by category id. */
 export interface CategoryDTO {
   display_name: string
   description: string
-  fields: unknown[]
+  fields: SchemaFieldDTO[]
 }
 
 export type CategoriesDTO = Record<string, CategoryDTO>

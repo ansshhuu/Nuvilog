@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AppShell } from '@/components/layout/AppShell'
 import type { NavItemId } from '@/components/layout/Sidebar'
+import { CategorySchemasView } from '@/views/CategorySchemasView'
 import { DashboardView } from '@/views/DashboardView'
 import { IngestView } from '@/views/IngestView'
 
@@ -13,7 +14,7 @@ const USER = 'ENGINEER_01'
 function App() {
   const [activeItem, setActiveItem] = useState<NavItemId>('dashboard')
 
-  // Two built destinations so far. The other nav entries have no screen yet
+  // Three built destinations so far. The other nav entries have no screen yet
   // and fall through to the dashboard, as they did before this split.
   //
   // Mounting one or the other (rather than hiding one with CSS) is what keeps
@@ -29,6 +30,8 @@ function App() {
     >
       {activeItem === 'ingest' ? (
         <IngestView onIngested={() => setActiveItem('dashboard')} />
+      ) : activeItem === 'settings' ? (
+        <CategorySchemasView />
       ) : (
         <DashboardView />
       )}
