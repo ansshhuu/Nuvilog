@@ -1,7 +1,5 @@
-import { Bolt, CircleDot, Package, Zap } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
 import { cn } from '@/lib/utils'
+import { categoryIcon } from '@/lib/categoryIcons'
 import { SkeletonBar } from '@/components/Feedback'
 
 export interface CategoryOption {
@@ -15,16 +13,6 @@ export interface CategoryChipsProps {
   onSelect: (id: string) => void
   loading?: boolean
   className?: string
-}
-
-/**
- * Icon per category id. Falls back to a neutral mark, so a category added to
- * the registry later still renders rather than crashing on a missing key.
- */
-const CATEGORY_ICON: Record<string, LucideIcon> = {
-  fasteners: Bolt,
-  electrical: Zap,
-  plumbing: CircleDot,
 }
 
 export function CategoryChips({
@@ -53,7 +41,7 @@ export function CategoryChips({
   return (
     <div className={cn('flex flex-wrap gap-3', className)}>
       {categories.map(({ id, displayName }) => {
-        const Icon = CATEGORY_ICON[id] ?? Package
+        const Icon = categoryIcon(id)
         const isSelected = id === selectedId
         return (
           <button
