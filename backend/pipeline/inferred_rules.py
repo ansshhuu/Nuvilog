@@ -37,6 +37,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
+from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_LABELS, is_dishwasher
 from pipeline.uom_normalizer import (
     SPACING_RULE_EXEMPT_FIELDS,
     has_correct_number_unit_spacing,
@@ -220,6 +221,21 @@ def _check_number_unit_spacing(rows: list[dict[str, str]]) -> bool:
                 continue
             if not has_correct_number_unit_spacing(value):
                 return False
+    return True
+
+
+def _check_dishwasher_scaffold_matches_known_rows(rows: list[dict[str, str]]) -> bool:
+    """Both known rows are dishwashers; their ATTRIBUTE_LABEL 1-15 must equal
+    DISHWASHER_ATTRIBUTE_SCAFFOLD exactly, in order, with nothing beyond slot 15."""
+    dishwasher_rows = [r for r in rows if is_dishwasher(r.get("Part_Desc", ""))]
+    if not dishwasher_rows:
+        return False
+    for row in dishwasher_rows:
+        actual = tuple(row.get(f"ATTRIBUTE_LABEL {i}", "").strip() for i in range(1, 16))
+        if actual != DISHWASHER_ATTRIBUTE_LABELS:
+            return False
+        if any(row.get(f"ATTRIBUTE_LABEL {i}", "").strip() for i in range(16, 51)):
+            return False
     return True
 
 
@@ -463,6 +479,26 @@ RULES: tuple[InferredRule, ...] = (
              "the converse would fail against the very examples it's meant to match.",
     ),
     InferredRule(
+        id="attributes.dishwasher_scaffold_15_labels",
+        field="ATTRIBUTE_LABEL 1..15",
+        rule="For dishwashers specifically, ATTRIBUTE_LABEL 1-15 is the fixed sequence "
+             "Series, Model, Number of Wash Cycles, Voltage Rating, Amperage Rating, "
+             "Mounting Type, Plug Type, Size, Depth With Door Open, Minimum Height, "
+             "Maximum Height, Sound Level, Material, Color, Additional Information — "
+             "nothing beyond slot 15 is used.",
+        evidence="Byte-identical label sequence in both known rows (PDSH4816AF, WDTS7024RZ), "
+                 "both dishwashers; slots 16-50 blank in both.",
+        confidence="high",
+        check=_check_dishwasher_scaffold_matches_known_rows,
+        note="Scoped to dishwashers ONLY — see pipeline/dishwasher_schema.py for the full "
+             "scaffold with per-label UOM evidence, and the NOT_BUILT entries below for the "
+             "5 other appliance sub-types found in the data (range, washer, microwave, "
+             "freezer, cooktop) that have real rows but zero scaffold evidence. This rule "
+             "supersedes the more general attributes.label_scaffold_is_category_template for "
+             "dishwashers specifically; that rule's n=2-both-dishwashers caveat is exactly "
+             "why this one doesn't get generalized further.",
+    ),
+    InferredRule(
         id="manufacturer.not_derivable_from_part_manuf",
         field="MANUFACTURER_NAME / BRAND_NAME",
         rule="MANUFACTURER_NAME and BRAND_NAME cannot be derived from Part_Manuf, or from any "
@@ -544,6 +580,35 @@ NOT_BUILT: tuple[tuple[str, str], ...] = (
         "to be duplicates of each other — each already carries a unique code), and a per-row "
         "'vendor code present, actual manufacturer unresolved' confidence flag. It never "
         "emits a MANUFACTURER_NAME or BRAND_NAME value.",
+    ),
+    (
+        "range attribute scaffold",
+        "10 real range rows exist in the 1000-row sample (e.g. 'PS960YPFS 30\" GE Electric "
+        "Range SS - Display Only') but zero of them have a known-correct delivery-format "
+        "answer. The confirmed dishwasher scaffold (attributes.dishwasher_scaffold_15_labels) "
+        "does not transfer — 'Number of Wash Cycles' and 'Depth With Door Open' don't apply "
+        "to a range. Guessing a range-specific label set from Part_Desc text alone would be "
+        "exactly the kind of fabrication this project keeps refusing to do.",
+    ),
+    (
+        "washer (laundry) attribute scaffold",
+        "8 real rows (e.g. 'FF7011WN Speed Queen Washer Wh'), zero ground-truth answers. "
+        "Same reasoning as range attribute scaffold above.",
+    ),
+    (
+        "microwave attribute scaffold",
+        "8 real rows (e.g. 'MSER2090S LG Microwave SS'), zero ground-truth answers. "
+        "Same reasoning as range attribute scaffold above.",
+    ),
+    (
+        "freezer attribute scaffold",
+        "3 real rows (e.g. 'EUF17CDBW Element 17CF Freezer - Upright'), zero ground-truth "
+        "answers. Same reasoning as range attribute scaffold above.",
+    ),
+    (
+        "cooktop attribute scaffold",
+        "2 real rows (e.g. 'PEP9030DTBB 30\" GE Cooktop Bk'), zero ground-truth answers. "
+        "Same reasoning as range attribute scaffold above.",
     ),
     (
         "UOM normalization table",

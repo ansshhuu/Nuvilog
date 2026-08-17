@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
 from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples
+from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_LABELS, is_dishwasher
 from pipeline.inferred_rules import RULES_BY_ID
 from pipeline.manufacturer_normalizer import resolve_manufacturer
 from pipeline.uom_normalizer import (
@@ -226,6 +227,24 @@ def _check_number_unit_spacing(row: dict[str, str], _src: Optional[dict[str, str
     return False, f"missing space between number and unit: {'; '.join(violations[:5])}"
 
 
+def _check_dishwasher_attribute_scaffold(
+    row: dict[str, str], src: Optional[dict[str, str]]
+) -> tuple[bool, str]:
+    part_desc = (src or {}).get("Part_Desc", "") if src is not None else row.get("Part_Desc", "")
+    if not is_dishwasher(part_desc):
+        return True, "not a dishwasher row, scaffold check not applicable"
+    actual = tuple(_nonblank(row, f"ATTRIBUTE_LABEL {i}") for i in range(1, 16))
+    if actual != DISHWASHER_ATTRIBUTE_LABELS:
+        return False, (
+            f"dishwasher ATTRIBUTE_LABEL 1-15 does not match the confirmed scaffold: "
+            f"{actual} != {DISHWASHER_ATTRIBUTE_LABELS}"
+        )
+    extra = [i for i in range(16, 51) if _nonblank(row, f"ATTRIBUTE_LABEL {i}")]
+    if extra:
+        return False, f"dishwasher row has labels beyond the confirmed 15-slot scaffold at slots {extra}"
+    return True, "matches the confirmed dishwasher attribute scaffold"
+
+
 def _check_compound_dimension_uom_blank(row: dict[str, str], _src: Optional[dict[str, str]]) -> tuple[bool, str]:
     violations = []
     for i in range(1, 51):
@@ -252,6 +271,7 @@ TIER2_CHECKS: dict[str, RuleChecker] = {
     "attributes.slots_contiguous": _check_attribute_labels_no_holes,
     "uom.number_unit_spacing": _check_number_unit_spacing,
     "uom.compound_dimension_uom_blank": _check_compound_dimension_uom_blank,
+    "attributes.dishwasher_scaffold_15_labels": _check_dishwasher_attribute_scaffold,
 }
 
 _unknown_rule_ids = set(TIER2_CHECKS) - set(RULES_BY_ID)
