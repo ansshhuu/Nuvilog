@@ -372,10 +372,22 @@ def generate_descriptions(
     mfg_part_num: str,
     part_desc: str,
     expected: Optional[dict[str, str]] = None,
+    extra_trusted_fields: Optional[dict[str, str]] = None,
     llm: Optional[LLMClient] = None,
     specs: Optional[dict[str, FormatSpec]] = None,
 ) -> tuple[dict[str, str], dict[str, list[str]]]:
     """Generate the 5 description fields for one dishwasher row.
+
+    `extra_trusted_fields` is for values verified by some OTHER honest
+    process this module doesn't itself run — e.g.
+    manufacturer_enrichment.PageExtractionResult.verified_values(), whose
+    fields already passed the same found/snippet/confidence discipline
+    extractor.py + confidence_engine.py apply everywhere else in this
+    codebase. It is merged in with the same exclusion-filter rule as
+    `expected`: blank values are dropped, nothing here upgrades a field's
+    trust level, it only widens where trusted values are allowed to come
+    from. Passing raw scraped page text here instead would defeat the
+    point — only pass already-verified {label: value} pairs.
 
     Returns (descriptions, invented_number_violations). The violations dict
     is the same shape as find_invented_numbers() — check it before trusting
@@ -386,6 +398,10 @@ def generate_descriptions(
     llm = llm or LLMClient()
     specs = specs or build_format_specs()
     trusted = trusted_fields_for_row(mfg_part_num, part_desc, expected)
+    for key, value in (extra_trusted_fields or {}).items():
+        value = (value or "").strip()
+        if value:
+            trusted[key] = value
 
     response = llm.complete_json(SYSTEM_PROMPT, _build_user_prompt(trusted, specs))
 

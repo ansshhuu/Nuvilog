@@ -625,4 +625,19 @@ NOT_BUILT: tuple[tuple[str, str], ...] = (
         "No LOV files exist. The attribute label template is observable for one "
         "category (dishwashers) from 2 rows; permitted values per label are not.",
     ),
+    (
+        "manufacturer-site enrichment for rows without a known URL",
+        "Manufacturer-site enrichment (pipeline/manufacturer_enrichment.py) is proven "
+        "on the 2 known rows with known URLs — PDSH4816AF and WDTS7024RZ carry a real "
+        "MFR URL in the delivery format, so no search step was needed to find them. "
+        "Scaling to the other 8 dishwasher rows, or any of the other 990 input rows, "
+        "requires a search step to find each product's manufacturer URL in the first "
+        "place, and no free option for that exists in this project: Gemini's Google "
+        "Search grounding needs a paid/billing-enabled tier (this project runs on a "
+        "free key), and Google Custom Search's free tier is a real, separate "
+        "setup/cost tradeoff (a new API, a new key, a 100-query/day cap) that was not "
+        "signed up for here. Flagged for a scope decision rather than silently "
+        "skipped — this is buildable, it just costs something real that the other "
+        "2-row proof of concept didn't.",
+    ),
 )
