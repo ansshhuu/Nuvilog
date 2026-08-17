@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -118,6 +119,499 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Evaluation report — read-only, no DB, no LLM.
+# ---------------------------------------------------------------------------
+
+# Structural constants derived from the pipeline implementation:
+#   Tier 2 = 11 inferred rules (dishwasher_schema.py, all rows, always pass).
+#   Tier 3 total differs by 1 between known and unknown rows because the
+#   description honesty check only scores the generated descriptions, and the
+#   description generator produces slightly different outputs per known state —
+#   this is reflected in step6_7_report.md (176/176 known, 177/177 unknown).
+#   Tier 1 is only meaningful for is_known=True rows (252 columns with ground
+#   truth); for all others the md says "n/a".
+_TIER2_TOTAL = 11
+_TIER1_TOTAL = 252
+_TIER3_TOTAL_KNOWN = 176
+_TIER3_TOTAL_UNKNOWN = 177
+
+_REPORTS_DIR = Path(__file__).resolve().parent / "reports"
+
+# Regex to parse a table row from step8_report.md:
+#   | MPN | desc_before -> desc_after | attr_before -> attr_after | t1_before -> t1_after | ... |
+_STEP8_ROW_RE = re.compile(
+    r"\|\s*(\w+)\s*\|"
+    r"\s*([\d/]+)\s*->\s*([\d/]+)\s*\|"
+    r"\s*([\d/]+)\s*->\s*([\d/]+)\s*\|"
+    r"\s*([\d/]+)\s*->\s*([\d/]+)\s*\|"
+    r"\s*([\d/]+)\s*->\s*([\d/]+)\s*\|"
+    r"\s*([\d/]+)\s*->\s*([\d/]+)\s*\|",
+)
+
+# Row-count pattern inside a NOT_BUILT reason string.
+# Matches "10 real range rows", "8 real rows", "3 real rows", etc.
+# {0,2} so zero intervening category words (washer/microwave/freezer/cooktop
+# reasons say "8 real rows (e.g. …)") is also captured.
+_ROW_COUNT_RE = re.compile(r"(\d+)\s+real\s+(?:\w+\s+){0,2}rows?")
+
+
+def _not_built_entry(name: str, reason: str) -> dict:
+    """Convert one NOT_BUILT (name, reason) tuple to a display-ready dict.
+
+    Short label: strip known boilerplate suffixes from the name and uppercase.
+    Detail line: either "N rows, no ground truth" (when a row count is found
+    in the reason) or "requires paid API" (for the search-based enrichment
+    entry), or None when neither applies.
+    """
+    label = (
+        name.upper()
+        # Strip the repeated suffix patterns so only the subject remains.
+        .replace(" ATTRIBUTE SCAFFOLD", "")
+        .replace(" (LAUNDRY)", "")
+        .replace(" NORMALIZATION TABLE", "")
+        .replace(" CONVERSION TABLE", "")
+        .replace(" / CONSTRAINED VOCABULARY", "")
+        .replace(" FOR ROWS WITHOUT A KNOWN URL", "")
+        # The manufacturer entry has an extremely long suffix — trim to subject.
+        .replace(" AGAINST A MASTER LIST", "")
+        .strip()
+    )
+
+    count_m = _ROW_COUNT_RE.search(reason)
+    if count_m:
+        return {"label": label, "detail": f"{count_m.group(1)} rows, no ground truth"}
+
+    if "paid" in reason.lower() or "search" in name.lower():
+        return {"label": "SEARCH-BASED ENRICHMENT", "detail": "requires paid API"}
+
+    return {"label": label, "detail": None}
+
+
+@app.get("/api/evaluation-report")
+def get_evaluation_report() -> dict:
+    """Read-only evaluation report.
+
+    Derives structured Tier 1/2/3 scores from ``step6_7_report.json`` using
+    the structural constants above (no separate JSON breakdown exists — the
+    file only has combined pass/fail totals, so we back-calculate per tier).
+
+    Before/after comparison data comes from ``step8_report.md`` (no JSON twin
+    exists) parsed with a regex that matches the markdown table rows.
+
+    NOT_BUILT entries come directly from ``pipeline.inferred_rules.NOT_BUILT``
+    so the list stays in sync whenever a backend entry is added or removed.
+    """
+    # --- Tier scores ----------------------------------------------------------
+    step67_path = _REPORTS_DIR / "step6_7_report.json"
+    raw_rows: list[dict] = json.loads(step67_path.read_text(encoding="utf-8"))
+
+    rows = []
+    for row in raw_rows:
+        is_known: bool = row["is_known"]
+        counts: dict = row["counts"]
+        tier3_failures: list = row.get("tier3_failures", [])
+
+        tier3_total = _TIER3_TOTAL_KNOWN if is_known else _TIER3_TOTAL_UNKNOWN
+        tier3_pass = tier3_total - len(tier3_failures)
+        tier2_pass = _TIER2_TOTAL
+
+        if is_known:
+            # Back-calculate Tier 1 from total pass − Tier 2 pass − Tier 3 pass.
+            # This is valid because all three tiers are non-overlapping.
+            tier1_pass = counts["pass"] - tier2_pass - tier3_pass
+            tier1: dict | None = {"score": tier1_pass, "total": _TIER1_TOTAL}
+        else:
+            tier1 = None  # N/A for rows without ground truth
+
+        rows.append(
+            {
+                "mpn": row["mpn"],
+                "is_known": is_known,
+                "tier1": tier1,
+                "tier2": {"score": tier2_pass, "total": _TIER2_TOTAL},
+                "tier3": {
+                    "score": tier3_pass,
+                    "total": tier3_total,
+                    "fabrication_violations": len(tier3_failures),
+                },
+            }
+        )
+
+    # --- Before/after comparison (step8_report.md) ----------------------------
+    step8_text = (_REPORTS_DIR / "step8_report.md").read_text(encoding="utf-8")
+    comparison: dict[str, dict] = {}
+    for m in _STEP8_ROW_RE.finditer(step8_text):
+        mpn_key = m.group(1)
+        comparison[mpn_key] = {
+            "descriptions_nonempty": {"baseline": m.group(2), "enriched": m.group(3)},
+            "attributes_verified": {"baseline": m.group(4), "enriched": m.group(5)},
+            "tier1_score": {"baseline": m.group(6), "enriched": m.group(7)},
+        }
+
+    # --- NOT_BUILT from inferred_rules ----------------------------------------
+    from pipeline.inferred_rules import NOT_BUILT  # local import avoids circular issues
+
+    not_built = [_not_built_entry(name, reason) for name, reason in NOT_BUILT]
+
+    return {"rows": rows, "comparison": comparison, "not_built": not_built}
+
+
+
+
+# ---------------------------------------------------------------------------
+# Description formats — read-only, reads pipeline CSV output.
+# ---------------------------------------------------------------------------
+
+_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+_DELIVERY_CSV = _OUTPUT_DIR / "dishwasher_delivery_rows.csv"
+
+# Confidence level → field status word + colour token understood by the UI.
+_CONFIDENCE_TO_STATUS = {
+    "high": "verbatim",
+    "medium": "inferred",
+    "low": "unverified",
+}
+
+# Source fields that feed each description format, with their likely status.
+# These are derived from description_builder.trusted_fields_for_row() logic:
+# BRAND_NAME/MANUFACTURER_NAME only exist for is_known rows; the 8 thin rows
+# only have Mfg_Part_Num and Part_Desc as trusted inputs.
+_FORMAT_SOURCE_FIELDS: dict[str, list[tuple[str, str]]] = {
+    "INVOICE_DESC": [
+        ("Mfg_Part_Num", "high"),
+        ("Part_Desc", "high"),
+    ],
+    "MOBILE_DESC": [
+        ("BRAND_NAME", "high"),
+        ("MANUFACTURER_NAME", "medium"),
+        ("Mfg_Part_Num", "high"),
+        ("Part_Desc", "high"),
+    ],
+    "SHORT_DESC": [
+        ("BRAND_NAME", "high"),
+        ("Mfg_Part_Num", "high"),
+        ("Part_Desc", "high"),
+    ],
+    "LONG_DESC1": [
+        ("BRAND_NAME", "high"),
+        ("Part_Desc", "high"),
+        ("ATTRIBUTE_VALUE 1", "medium"),
+        ("ATTRIBUTE_VALUE 3", "medium"),
+        ("ATTRIBUTE_VALUE 15", "medium"),
+    ],
+    "MARKETING_DESCRIPTION": [
+        ("BRAND_NAME", "high"),
+        ("Part_Desc", "medium"),
+        ("ATTRIBUTE_VALUE 1", "low"),
+    ],
+}
+
+# The char-limit pairs (min, max) for each format. Derived from
+# description_builder.FormatSpec / build_format_specs():
+#   INVOICE_DESC max=40, MOBILE_DESC observed 60-80, SHORT_DESC no strict limit,
+#   LONG_DESC1 60-80 from brief, MARKETING_DESCRIPTION ~100-150.
+# The UI shows "0 / LIMIT" as specified.
+_FORMAT_LIMITS: dict[str, tuple[int | None, int | None]] = {
+    "INVOICE_DESC": (None, 40),
+    "MOBILE_DESC": (60, 80),
+    "SHORT_DESC": (None, 80),
+    "LONG_DESC1": (60, 80),
+    "MARKETING_DESCRIPTION": (100, 150),
+}
+
+
+def _limit_display(field_name: str) -> str:
+    """Return the limit string shown in the badge, e.g. '40', '60-80', '100-150'."""
+    lo, hi = _FORMAT_LIMITS.get(field_name, (None, None))
+    if lo is not None and hi is not None:
+        return f"{lo}-{hi}"
+    if hi is not None:
+        return str(hi)
+    if lo is not None:
+        return f"{lo}+"
+    return "—"
+
+
+def _source_fields_for_row(
+    field_name: str, row: dict[str, str], is_known: bool
+) -> list[dict]:
+    """
+    Return the source-field confidence list for this format and row.
+
+    For is_known rows all declared source fields may be present.
+    For unknown rows, only Mfg_Part_Num and Part_Desc are trusted inputs
+    (description_builder.trusted_fields_for_row returns only those for
+    expected=None rows). The returned status reflects what is actually in
+    the row, not what the format ideally wants.
+    """
+    base = _FORMAT_SOURCE_FIELDS.get(field_name, [])
+    result = []
+    for src_field, base_confidence in base:
+        # Whether this field actually has a value in this row.
+        value = row.get(src_field, "").strip()
+        if not is_known and src_field not in ("Mfg_Part_Num", "Part_Desc"):
+            # Unknown rows: only the 2 raw input columns are trusted.
+            status = "unverified"
+        elif value:
+            status = _CONFIDENCE_TO_STATUS.get(base_confidence, "unverified")
+        else:
+            status = "unverified"
+        result.append({"field": src_field, "status": status})
+    return result
+
+
+def _format_rule_payload(field_name: str, specs: dict) -> dict:
+    """Build the generation-rule payload for the right-panel from a FormatSpec."""
+    spec = specs.get(field_name)
+    if spec is None:
+        return {}
+
+    lo, hi = _FORMAT_LIMITS.get(field_name, (None, None))
+    limit_str = _limit_display(field_name)
+
+    # Derive worked example from the known rows' actual generated text.
+    # (The CSV row for PDSH4816AF is index 1 in the data, which has real values.)
+
+    casing = "ALL CAPS" if spec.uppercase else "Title Case / Mixed"
+    rule_text = spec.rule
+    confidence = spec.confidence  # "high" | "medium" | "low"
+
+    # Only HIGH-confidence rules are presented as authoritative per spec.
+    is_authoritative = confidence == "high"
+
+    separators = "Comma" if "comma" in spec.rule.lower() else "Space"
+
+    return {
+        "field": field_name,
+        "confidence": confidence,
+        "is_authoritative": is_authoritative,
+        "char_limit": limit_str,
+        "char_min": lo,
+        "char_max": hi,
+        "casing": casing,
+        "rule": rule_text,
+        "evidence": spec.evidence,
+    }
+
+
+@app.get("/api/description-formats")
+def get_description_formats(record: int = 0) -> dict:
+    """
+    Per-row description format view.
+
+    Reads from backend/output/dishwasher_delivery_rows.csv (10 rows, real
+    pipeline output). `record` is 0-indexed. Returns the 5 description fields
+    for that row, with char counts, generation rules from build_format_specs(),
+    and source-field confidence.
+
+    REGENERATE ALL has no real backend action — this endpoint intentionally
+    does not trigger a re-run (that would need an LLM call, rate limiting,
+    and the same careful exclusion-filter guard as description_builder.py).
+    The UI disables that button with an honest tooltip.
+    """
+    import csv as csv_module
+    from pipeline.description_builder import DESCRIPTION_FIELDS, build_format_specs
+
+    if not _DELIVERY_CSV.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Pipeline output not found. Run the dishwasher pipeline first "
+                "to generate backend/output/dishwasher_delivery_rows.csv."
+            ),
+        )
+
+    with _DELIVERY_CSV.open(encoding="utf-8-sig", newline="") as fh:
+        reader = csv_module.DictReader(fh)
+        rows = list(reader)
+
+    if not rows:
+        raise HTTPException(status_code=503, detail="Pipeline output CSV is empty.")
+
+    total = len(rows)
+    if record < 0 or record >= total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"record must be 0–{total - 1}; got {record}.",
+        )
+
+    row = rows[record]
+    mpn = (row.get("Mfg_Part_Num") or "").strip()
+    part_desc = (row.get("Part_Desc") or "").strip()
+
+    # is_known: only the 2 rows with real MANUFACTURER_NAME have full ground truth.
+    is_known = bool((row.get("MANUFACTURER_NAME") or "").strip())
+
+    # Category is always DISHWASHER for all 10 rows in this file.
+    category = "DISHWASHER"
+
+    # Build format specs from the real backend rules (not hand-typed).
+    specs = build_format_specs()
+
+    # Assemble the 5-format cards.
+    formats = []
+    for field_name in DESCRIPTION_FIELDS:
+        text = (row.get(field_name) or "").strip()
+        generated = bool(text)
+        char_count = len(text)
+        lo, hi = _FORMAT_LIMITS.get(field_name, (None, None))
+        within_limit = True
+        if generated:
+            if hi is not None and char_count > hi:
+                within_limit = False
+            if lo is not None and char_count < lo:
+                within_limit = False
+
+        # Reason string: pulled from the real spec evidence/rule when not generated.
+        not_generated_reason: str | None = None
+        if not generated:
+            spec = specs.get(field_name)
+            if spec:
+                # Mirror description_builder.py's logic: thin rows lack BRAND_NAME,
+                # so only formats that can run from Mfg_Part_Num+Part_Desc ever get
+                # content. The spec's evidence describes exactly why — surface that.
+                if not is_known:
+                    not_generated_reason = (
+                        "insufficient verified source data "
+                        "(no BRAND_NAME recovered)"
+                    )
+                else:
+                    not_generated_reason = f"rule confidence too low: {spec.evidence}"
+
+        formats.append(
+            {
+                "field": field_name,
+                "text": text if generated else None,
+                "generated": generated,
+                "char_count": char_count,
+                "char_limit": _limit_display(field_name),
+                "char_min": lo,
+                "char_max": hi,
+                "within_limit": within_limit,
+                "not_generated_reason": not_generated_reason,
+                "source_fields": _source_fields_for_row(field_name, row, is_known),
+                "rule": _format_rule_payload(field_name, specs),
+            }
+        )
+
+    return {
+        "record": record,
+        "total": total,
+        "mpn": mpn,
+        "part_desc": part_desc,
+        "is_known": is_known,
+        "category": category,
+        "formats": formats,
+    }
+
+
+@app.get("/api/manufacturer-enrichment")
+def get_manufacturer_enrichment(record: int = 0) -> dict:
+    """
+    Mock endpoint for Manufacturer Enrichment screen proof of concept.
+    Returns deterministic results for the two known rows (PDSH4816AF and WDTS7024RZ)
+    and an unattempted state for all others.
+    """
+    import csv as csv_module
+    import datetime
+
+    if not _DELIVERY_CSV.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline output not found. Run the dishwasher pipeline first.",
+        )
+
+    with _DELIVERY_CSV.open(encoding="utf-8-sig", newline="") as fh:
+        reader = csv_module.DictReader(fh)
+        rows = list(reader)
+
+    if not rows:
+        raise HTTPException(status_code=503, detail="Pipeline output CSV is empty.")
+
+    total = len(rows)
+    if record < 0 or record >= total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"record must be 0–{total - 1}; got {record}.",
+        )
+
+    row = rows[record]
+    mpn = (row.get("Mfg_Part_Num") or "").strip()
+    
+    from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_SCAFFOLD
+    
+    fields = []
+    
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    if mpn == "PDSH4816AF":
+        status = "timeout"
+        url = "https://www.frigidaire.com/en/p/kitchen/dishwashers/built-in-dishwashers/PDSH4816AF"
+        error = "Source unreachable — request timed out after 10s"
+        page_text_excerpt = None
+        for attr in DISHWASHER_ATTRIBUTE_SCAFFOLD:
+            fields.append({
+                "field_name": attr.label,
+                "value": None,
+                "confidence": "unverified",
+                "snippet": None,
+            })
+    elif mpn == "WDTS7024RZ":
+        status = "success"
+        url = "https://learnwhirlpool.com/product/wdts7024rz"
+        error = None
+        page_text_excerpt = "Load more and run less with our quietest and largest capacity dishwasher. The Eco Series WDTS7024RZ brings advanced cleaning... 24 in W x 24-1/4 in D size. Sound level is 41 dBA..."
+        
+        verified_fields = {
+            "Series": {"value": "Eco Series", "snippet": "The Eco Series WDTS7024RZ brings advanced cleaning..."},
+            "Size": {"value": "24 in W x 24-1/4 in D", "snippet": "24 in W x 24-1/4 in D size."},
+            "Sound Level": {"value": "41", "snippet": "Sound level is 41 dBA..."},
+            "Additional Information": {"value": "Load more and run less with our quietest and largest capacity dishwasher.", "snippet": "Load more and run less with our quietest and largest capacity dishwasher."},
+        }
+        
+        for attr in DISHWASHER_ATTRIBUTE_SCAFFOLD:
+            if attr.label in verified_fields:
+                val = verified_fields[attr.label]
+                fields.append({
+                    "field_name": attr.label,
+                    "value": val["value"],
+                    "confidence": "verbatim",
+                    "snippet": val["snippet"],
+                })
+            else:
+                fields.append({
+                    "field_name": attr.label,
+                    "value": None,
+                    "confidence": "unverified",
+                    "snippet": None,
+                })
+    else:
+        status = "not_attempted"
+        url = None
+        error = None
+        page_text_excerpt = None
+        for attr in DISHWASHER_ATTRIBUTE_SCAFFOLD:
+            fields.append({
+                "field_name": attr.label,
+                "value": None,
+                "confidence": "unverified",
+                "snippet": None,
+            })
+            
+    return {
+        "record": record,
+        "total": total,
+        "mpn": mpn,
+        "status": status,
+        "url": url,
+        "timestamp": timestamp,
+        "page_text_excerpt": page_text_excerpt,
+        "error": error,
+        "fields": fields,
+    }
 
 
 @app.get("/api/categories")

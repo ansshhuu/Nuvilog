@@ -4,6 +4,7 @@ import {
   Database,
   FileText,
   GitBranch,
+  Globe,
   LayoutGrid,
   Settings,
   Upload,
@@ -19,6 +20,7 @@ export type NavItemId =
   | 'sources'
   | 'flags'
   | 'pipeline'
+  | 'enrichment'
   | 'analytics'
   | 'settings'
 
@@ -37,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'sources', label: 'Sources', icon: Database },
   { id: 'flags', label: 'Flagged', icon: AlertTriangle },
   { id: 'pipeline', label: 'Pipeline', icon: GitBranch },
+  { id: 'enrichment', label: 'Enrichment', icon: Globe },
   { id: 'analytics', label: 'Analytics', icon: BarChart2 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]

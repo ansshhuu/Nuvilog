@@ -1,6 +1,8 @@
 import type {
   BatchIngestResultDTO,
   CategoriesDTO,
+  DescriptionFormatsDTO,
+  EvaluationReportDTO,
   IngestResultDTO,
   InputType,
   ProductDTO,
@@ -152,5 +154,34 @@ export async function markProductForReview(
   return request<StatusChangeDTO>(
     `/api/products/${encodeURIComponent(id)}/mark-for-review`,
     { method: 'POST' },
+  )
+}
+
+/** GET /api/evaluation-report — tier scores, before/after comparison, and NOT_BUILT scope. */
+export async function fetchEvaluationReport(
+  signal?: AbortSignal,
+): Promise<EvaluationReportDTO> {
+  return request<EvaluationReportDTO>('/api/evaluation-report', { signal })
+}
+
+/** GET /api/description-formats?record=N — per-row description format data. */
+export async function fetchDescriptionFormats(
+  record: number,
+  signal?: AbortSignal,
+): Promise<DescriptionFormatsDTO> {
+  return request<DescriptionFormatsDTO>(
+    `/api/description-formats?record=${record}`,
+    { signal },
+  )
+}
+
+/** GET /api/manufacturer-enrichment?record=N — mock data for manufacturer enrichment. */
+export async function fetchManufacturerEnrichment(
+  record: number,
+  signal?: AbortSignal,
+): Promise<import('./api-types').ManufacturerEnrichmentDTO> {
+  return request<import('./api-types').ManufacturerEnrichmentDTO>(
+    `/api/manufacturer-enrichment?record=${record}`,
+    { signal },
   )
 }
