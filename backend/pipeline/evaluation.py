@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
 from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples
+from pipeline.description_builder import DESCRIPTION_FIELDS, find_invented_numbers
 from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_LABELS, is_dishwasher
 from pipeline.inferred_rules import RULES_BY_ID
 from pipeline.manufacturer_normalizer import resolve_manufacturer
@@ -418,6 +419,55 @@ def evaluate_row(
                     reason=f"manufacturer/brand correctly left blank ({resolution.confidence_label})",
                 )
             )
+
+    # --- Tier 3 (continued): description factual consistency ---
+    # A description field asserting a number nowhere else on this row (no
+    # ATTRIBUTE_VALUE, no Mfg_Part_Num/Part_Desc, no BRAND_NAME/
+    # MANUFACTURER_NAME) is a number the generator invented — the same
+    # self-consistency logic description_builder.generate_descriptions()
+    # already runs against its own prompt inputs, re-applied here at the
+    # row level so it catches ANY generated row, not only ones produced by
+    # that module. See description_builder.find_invented_numbers.
+    row_trusted_fields: dict[str, str] = {
+        "Mfg_Part_Num": _nonblank(generated, "Mfg_Part_Num"),
+        "Part_Desc": _nonblank(generated, "Part_Desc"),
+        "BRAND_NAME": _nonblank(generated, "BRAND_NAME"),
+        "MANUFACTURER_NAME": _nonblank(generated, "MANUFACTURER_NAME"),
+    }
+    for i in range(1, 51):
+        value = _nonblank(generated, f"ATTRIBUTE_VALUE {i}")
+        if value:
+            row_trusted_fields[f"ATTRIBUTE_VALUE {i}"] = value
+
+    number_violations = find_invented_numbers(generated, row_trusted_fields)
+    if number_violations:
+        detail = "; ".join(f"{field}={nums}" for field, nums in number_violations.items())
+        checks.append(
+            CheckResult(
+                tier=3,
+                check_id="description.no_invented_numbers",
+                status="fail",
+                reason=(
+                    "a description field states a number not traceable to any "
+                    f"ATTRIBUTE_VALUE, Mfg_Part_Num, Part_Desc, BRAND_NAME or "
+                    f"MANUFACTURER_NAME on this row: {detail}"
+                ),
+            )
+        )
+    else:
+        checked_fields = [f for f in DESCRIPTION_FIELDS if _nonblank(generated, f)]
+        checks.append(
+            CheckResult(
+                tier=3,
+                check_id="description.no_invented_numbers",
+                status="pass",
+                reason=(
+                    f"every number in {checked_fields} traces back to a real field on this row"
+                    if checked_fields
+                    else "no description fields populated, nothing to check"
+                ),
+            )
+        )
 
     return EvalResult(row_id=row_id or generated.get("Mfg_Part_Num", ""), checks=tuple(checks))
 

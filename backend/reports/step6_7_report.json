@@ -1,0 +1,112 @@
+[
+  {
+    "mpn": "KDFM404KPS",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "PDSH4816AF",
+    "is_known": true,
+    "counts": {
+      "pass": 397,
+      "warn": 0,
+      "fail": 42,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "PDT715SYVFS",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "LDPH5554D",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "WDTS7024RZ",
+    "is_known": true,
+    "counts": {
+      "pass": 389,
+      "warn": 0,
+      "fail": 50,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "PDD415PYYFS",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "KDTS424SBE",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "KDTS324SPS",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "KDPS624SJP",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  },
+  {
+    "mpn": "KDTS624SBE",
+    "is_known": false,
+    "counts": {
+      "pass": 188,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "tier3_failures": []
+  }
+]
