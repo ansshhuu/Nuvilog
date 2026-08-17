@@ -23,6 +23,13 @@ NOT BUILT — and deliberately so:
   Manufacturer/brand fuzzy matching against a master list. There is no master
   list to match against, so a matcher would be a no-op wearing a costume.
   See NOT_BUILT at the bottom of this module.
+
+STEP 4 UPDATE: the investigation into whether MANUFACTURER_NAME/BRAND_NAME
+are recoverable from the input row is now closed — they are not. See
+`manufacturer.not_derivable_from_part_manuf` below and
+`pipeline/manufacturer_normalizer.py`, which builds the honest
+canonicalization step (vendor-name clustering + a per-row "unresolved"
+confidence flag) instead of a fake transformation.
 """
 from __future__ import annotations
 
@@ -214,6 +221,20 @@ def _check_number_unit_spacing(rows: list[dict[str, str]]) -> bool:
             if not has_correct_number_unit_spacing(value):
                 return False
     return True
+
+
+def _check_manufacturer_not_derivable_from_part_manuf(rows: list[dict[str, str]]) -> bool:
+    """Same Part_Manuf, different MANUFACTURER_NAME -> no function Part_Manuf -> MANUFACTURER_NAME exists.
+
+    This check only proves what it can from n=2: if the 2 known rows ever
+    stop sharing a Part_Manuf value, this predicate can't say anything and
+    should be re-derived rather than trusted blindly.
+    """
+    manuf_values = {row.get("Part_Manuf", "").strip() for row in rows}
+    mfr_names = {row.get("MANUFACTURER_NAME", "").strip() for row in rows}
+    if len(manuf_values) != 1:
+        return False
+    return len(mfr_names) > 1
 
 
 def _check_compound_dimension_uom_blank(rows: list[dict[str, str]]) -> bool:
@@ -442,6 +463,24 @@ RULES: tuple[InferredRule, ...] = (
              "the converse would fail against the very examples it's meant to match.",
     ),
     InferredRule(
+        id="manufacturer.not_derivable_from_part_manuf",
+        field="MANUFACTURER_NAME / BRAND_NAME",
+        rule="MANUFACTURER_NAME and BRAND_NAME cannot be derived from Part_Manuf, or from any "
+             "other input column — both known rows share the identical Part_Manuf value yet "
+             "resolve to two different manufacturers and brands.",
+        evidence="Both rows: Part_Manuf='Appliance Dealers Cooperative (APPDE)'. Row 0: "
+                 "MANUFACTURER_NAME='Rheem Manufacturing', BRAND_NAME='FRIGIDAIRE®'. "
+                 "Row 1: MANUFACTURER_NAME='Whirlpool Corporation', BRAND_NAME='Whirlpool®'. "
+                 "E1_Brand/Unilog_Brand/DIB_Brand are sentinel-empty in both rows too.",
+        confidence="high",
+        check=_check_manufacturer_not_derivable_from_part_manuf,
+        note="This is the reason pipeline.manufacturer_normalizer never emits a "
+             "MANUFACTURER_NAME/BRAND_NAME value. It emits a per-row confidence flag "
+             "('vendor code present, actual manufacturer unresolved') instead. Resolving "
+             "these fields for the other 998 rows requires external product lookup — out "
+             "of scope for in-row cleaning, and not something to fake.",
+    ),
+    InferredRule(
         id="data_quality.example_manufacturer_is_wrong",
         field="MANUFACTURER_NAME",
         rule="Row 0 lists MANUFACTURER_NAME 'Rheem Manufacturing' for a FRIGIDAIRE dishwasher — an error in the worked example itself.",
@@ -491,15 +530,20 @@ def verify_rules(example_rows: list[dict[str, str]]) -> list[RuleCheck]:
 
 NOT_BUILT: tuple[tuple[str, str], ...] = (
     (
-        "manufacturer/brand fuzzy matcher",
-        "Cancelled as originally scoped. Matching Part_Manuf and the brand columns "
+        "manufacturer/brand fuzzy matcher against a master list",
+        "Still cancelled, and permanently so. Matching Part_Manuf or the brand columns "
         "against a manufacturer master list requires that master list; it does not "
-        "exist on disk and the organizer confirmed it will not be distributed. "
-        "What IS available: Part_Manuf carries a vendor code in parentheses "
-        "(e.g. 'Freud Inc (2435)') which dataset_loader splits out, and 76 distinct "
-        "Part_Manuf values across 1000 rows. Normalizing those 76 into a "
-        "self-derived vocabulary is possible; scoring against an authoritative list "
-        "is not.",
+        "exist on disk and the organizer confirmed it will not be distributed. Confirmed "
+        "separately (see manufacturer.not_derivable_from_part_manuf above): even if Part_Manuf "
+        "were matched against something, it wouldn't help — the 2 known rows share an "
+        "identical Part_Manuf and still resolve to different manufacturers, so Part_Manuf "
+        "is not a manufacturer signal at all, it's Unilog's own vendor/distributor field. "
+        "What WAS built instead (pipeline/manufacturer_normalizer.py): the 'Name (CODE)' "
+        "vendor-code parse (959/1000 rows), within-dataset clustering of the 76 distinct "
+        "vendor names for spelling/punctuation consolidation (real result: 0 of 76 turn out "
+        "to be duplicates of each other — each already carries a unique code), and a per-row "
+        "'vendor code present, actual manufacturer unresolved' confidence flag. It never "
+        "emits a MANUFACTURER_NAME or BRAND_NAME value.",
     ),
     (
         "UOM normalization table",

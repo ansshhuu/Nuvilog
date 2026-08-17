@@ -36,6 +36,7 @@ from typing import Callable, Literal, Optional
 
 from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples
 from pipeline.inferred_rules import RULES_BY_ID
+from pipeline.manufacturer_normalizer import resolve_manufacturer
 from pipeline.uom_normalizer import (
     SPACING_RULE_EXEMPT_FIELDS,
     find_spacing_violations,
@@ -363,6 +364,40 @@ def evaluate_row(
                 checks.append(
                     CheckResult(tier=3, check_id=f"required:{col}", status="pass", reason="populated")
                 )
+
+    # --- Tier 3 (continued): manufacturer/brand honesty ---
+    # Only applicable when there's no known ground truth for this row (expected
+    # is None) — the 2 known rows DO have real MANUFACTURER_NAME/BRAND_NAME
+    # values (from external lookup, see inferred_rules.
+    # manufacturer.not_derivable_from_part_manuf), so this check would be wrong
+    # to apply to them. For every other row, no lookup mechanism exists, so a
+    # populated MANUFACTURER_NAME/BRAND_NAME is a fabrication by construction.
+    if source_input is not None and expected is None:
+        resolution = resolve_manufacturer(source_input)
+        fabricated = [c for c in ("MANUFACTURER_NAME", "BRAND_NAME") if _nonblank(generated, c)]
+        if fabricated:
+            checks.append(
+                CheckResult(
+                    tier=3,
+                    check_id="manufacturer_brand.unresolved_without_lookup",
+                    status="fail",
+                    reason=(
+                        f"{', '.join(fabricated)} populated for a row with no known ground "
+                        f"truth and no external lookup performed ({resolution.confidence_label})"
+                        " — this looks fabricated"
+                    ),
+                    actual="; ".join(f"{c}={_nonblank(generated, c)!r}" for c in fabricated),
+                )
+            )
+        else:
+            checks.append(
+                CheckResult(
+                    tier=3,
+                    check_id="manufacturer_brand.unresolved_without_lookup",
+                    status="pass",
+                    reason=f"manufacturer/brand correctly left blank ({resolution.confidence_label})",
+                )
+            )
 
     return EvalResult(row_id=row_id or generated.get("Mfg_Part_Num", ""), checks=tuple(checks))
 
