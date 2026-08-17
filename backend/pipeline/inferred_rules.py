@@ -30,6 +30,12 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Literal, Optional
 
+from pipeline.uom_normalizer import (
+    SPACING_RULE_EXEMPT_FIELDS,
+    has_correct_number_unit_spacing,
+    is_compound_dimension,
+)
+
 Confidence = Literal["low", "medium", "high"]
 
 INFERENCE_BASIS = (
@@ -197,6 +203,26 @@ def _check_short_desc_starts_with_brand(rows: list[dict[str, str]]) -> bool:
         short = row.get("SHORT_DESC", "").strip()
         if brand and short and not short.startswith(brand):
             return False
+    return True
+
+
+def _check_number_unit_spacing(rows: list[dict[str, str]]) -> bool:
+    for row in rows:
+        for field_name, value in row.items():
+            if field_name in SPACING_RULE_EXEMPT_FIELDS or not value:
+                continue
+            if not has_correct_number_unit_spacing(value):
+                return False
+    return True
+
+
+def _check_compound_dimension_uom_blank(rows: list[dict[str, str]]) -> bool:
+    for row in rows:
+        for i in range(1, 51):
+            value = row.get(f"ATTRIBUTE_VALUE {i}", "").strip()
+            uom = row.get(f"ATTRIBUTE_UOM {i}", "").strip()
+            if value and is_compound_dimension(value) and uom:
+                return False
     return True
 
 
@@ -383,6 +409,37 @@ RULES: tuple[InferredRule, ...] = (
         evidence="Direct observation — those 30+ columns are empty in the delivery file.",
         confidence="high",
         note="This means we have ZERO formatting evidence for a third of the delivery format. Do not invent conventions for these fields and present them as matched to the target.",
+    ),
+    InferredRule(
+        id="uom.number_unit_spacing",
+        field="all fields except INVOICE_DESC",
+        rule="A number and its unit abbreviation are always separated by a space "
+             "('24 in', not '24in'), everywhere except INVOICE_DESC.",
+        evidence="'120 V', '15 A', '24 in', '24-1/4 in', '47 dBA', '10-3/8 in' all appear "
+                 "with a space in LONG_DESC1/ATTRIBUTE_VALUE across both rows; zero "
+                 "no-space occurrences found outside INVOICE_DESC.",
+        confidence="high",
+        check=_check_number_unit_spacing,
+        note="This is pure math/typography, not a fabricated rule — this is a strictly "
+             "different (and more confident) claim than the UOM abbreviation choices "
+             "themselves, see uom_normalizer.UNIT_REGISTRY confirmed/inferred split. "
+             "INVOICE_DESC is excluded because it confirms the OPPOSITE convention "
+             "(see invoice_desc.uppercase) — '120V', '15A', '50-1/4IN' have no spaces there.",
+    ),
+    InferredRule(
+        id="uom.compound_dimension_uom_blank",
+        field="ATTRIBUTE_UOM 1..50",
+        rule="When ATTRIBUTE_VALUE is a compound dimension string (multiple numbers/units, "
+             "an 'x' connector, or axis letters like W/D/H), ATTRIBUTE_UOM stays blank — "
+             "the unit(s) stay inline in the value instead of being pulled into the UOM column.",
+        evidence="'Size' = '24 in W x 24-1/4 in D' with UOM blank; 'Minimum Height' = "
+                 "'8-1/2 in Upper Rack, 11-1/4 in Lower Rack' with UOM blank, in both rows.",
+        confidence="high",
+        check=_check_compound_dimension_uom_blank,
+        note="Deliberately one-directional. The converse ('bare numeric implies UOM is "
+             "filled') does NOT hold in the ground truth — row 0's 'Number of Wash Cycles' "
+             "= '5' with UOM blank, because a count isn't a unit of measurement. Asserting "
+             "the converse would fail against the very examples it's meant to match.",
     ),
     InferredRule(
         id="data_quality.example_manufacturer_is_wrong",

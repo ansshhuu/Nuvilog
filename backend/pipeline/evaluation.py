@@ -36,6 +36,11 @@ from typing import Callable, Literal, Optional
 
 from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples
 from pipeline.inferred_rules import RULES_BY_ID
+from pipeline.uom_normalizer import (
+    SPACING_RULE_EXEMPT_FIELDS,
+    find_spacing_violations,
+    is_compound_dimension,
+)
 
 Status = Literal["pass", "warn", "fail", "skip"]
 
@@ -207,6 +212,31 @@ def _check_attribute_labels_no_holes(row: dict[str, str], _src: Optional[dict[st
     return ok, f"filled attribute slots are not contiguous from 1: {filled}"
 
 
+def _check_number_unit_spacing(row: dict[str, str], _src: Optional[dict[str, str]]) -> tuple[bool, str]:
+    violations = []
+    for field_name, value in row.items():
+        if field_name in SPACING_RULE_EXEMPT_FIELDS or not value:
+            continue
+        hits = find_spacing_violations(value)
+        if hits:
+            violations.append(f"{field_name}={value!r} ({hits})")
+    if not violations:
+        return True, "no number-unit spacing violations"
+    return False, f"missing space between number and unit: {'; '.join(violations[:5])}"
+
+
+def _check_compound_dimension_uom_blank(row: dict[str, str], _src: Optional[dict[str, str]]) -> tuple[bool, str]:
+    violations = []
+    for i in range(1, 51):
+        value = _nonblank(row, f"ATTRIBUTE_VALUE {i}")
+        uom = _nonblank(row, f"ATTRIBUTE_UOM {i}")
+        if value and uom and is_compound_dimension(value):
+            violations.append(f"slot {i}: value={value!r} uom={uom!r}")
+    if not violations:
+        return True, "no compound-dimension values with a populated UOM"
+    return False, f"UOM should be blank for compound dimension values: {'; '.join(violations)}"
+
+
 # Rule id -> checker. Severity comes from RULES_BY_ID[rule_id].confidence:
 # high == fail, medium/low == warn. A rule id here that isn't in
 # inferred_rules.RULES is a bug, so this is asserted at import time below.
@@ -219,6 +249,8 @@ TIER2_CHECKS: dict[str, RuleChecker] = {
     "formatting.ascii_fractions": _check_ascii_fractions,
     "passthrough.placeholders_preserved": _check_passthrough_placeholders_preserved,
     "attributes.slots_contiguous": _check_attribute_labels_no_holes,
+    "uom.number_unit_spacing": _check_number_unit_spacing,
+    "uom.compound_dimension_uom_blank": _check_compound_dimension_uom_blank,
 }
 
 _unknown_rule_ids = set(TIER2_CHECKS) - set(RULES_BY_ID)
