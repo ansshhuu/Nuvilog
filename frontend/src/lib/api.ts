@@ -1,19 +1,15 @@
 import type {
-  BatchIngestResultDTO,
-  CategoriesDTO,
   DescriptionFormatsDTO,
   DishwasherSchemaDTO,
   EvaluationReportDTO,
-  IngestResultDTO,
-  InputType,
-  ProductDTO,
-  ProductListDTO,
-  ProductSummaryDTO,
-  StatusChangeDTO,
 } from './api-types'
+import { clearStoredSession, getStoredSession, type Session } from './session'
 
 /**
- * Thin client over the FastAPI routes in backend/main.py.
+ * Thin client over the FastAPI routes the 4 real screens actually use
+ * (backend/main.py has more routes than this — /api/products, /api/ingest,
+ * /api/categories, etc. — left over from the pre-pivot fastener-domain UI;
+ * this file only wraps what's currently reachable from the app).
  *
  * Paths are relative on purpose — Vite proxies /api to the backend in dev (see
  * vite.config.ts), so no origin is baked into the bundle.
@@ -34,12 +30,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const session = getStoredSession()
+  const headers: HeadersInit = { Accept: 'application/json', ...init?.headers }
+  if (session) (headers as Record<string, string>).Authorization = `Bearer ${session.token}`
+
   let response: Response
   try {
-    response = await fetch(path, {
-      ...init,
-      headers: { Accept: 'application/json', ...init?.headers },
-    })
+    response = await fetch(path, { ...init, headers })
   } catch {
     // fetch only rejects for transport-level failures — the server being down
     // is the overwhelmingly common one in dev, so say that rather than
@@ -51,6 +48,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
+    // A stale/expired token: drop it so the next render falls back to the
+    // login screen instead of retrying the same request forever.
+    if (response.status === 401) clearStoredSession()
+
     // FastAPI puts the useful message in `detail`; fall back to the status
     // line when the body is not the shape we expect (a proxy error page, say).
     let detail: string | null = null
@@ -69,101 +70,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-/** GET /api/products — every product with its fields and flags, newest first. */
-export async function fetchProducts(
-  signal?: AbortSignal,
-): Promise<ProductSummaryDTO[]> {
-  const data = await request<ProductListDTO>('/api/products', { signal })
-  return data.products
-}
-
-/** GET /api/products/{id} — one product, including ranked review findings. */
-export async function fetchProduct(
-  id: string,
-  signal?: AbortSignal,
-): Promise<ProductDTO> {
-  return request<ProductDTO>(`/api/products/${encodeURIComponent(id)}`, {
-    signal,
+/** POST /api/login — exchanges email/password for a signed session token. */
+export async function login(email: string, password: string): Promise<Session> {
+  return request<Session>('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
   })
 }
 
-/** POST /api/products/{id}/approve — sets status to "approved". */
-export async function approveProduct(id: string): Promise<StatusChangeDTO> {
-  return request<StatusChangeDTO>(
-    `/api/products/${encodeURIComponent(id)}/approve`,
-    { method: 'POST' },
-  )
-}
-
-/** GET /api/categories — the schema registry, keyed by category id. */
-export async function fetchCategories(
-  signal?: AbortSignal,
-): Promise<CategoriesDTO> {
-  return request<CategoriesDTO>('/api/categories', { signal })
-}
-
-/** GET /api/dishwasher-schema — the real 15-slot dishwasher attribute
- * scaffold, plus the other-appliance sub-types confirmed NOT_BUILT. */
+/** GET /api/dishwasher-schema — the real 15-slot dishwasher attribute scaffold. */
 export async function fetchDishwasherSchema(
   signal?: AbortSignal,
 ): Promise<DishwasherSchemaDTO> {
   return request<DishwasherSchemaDTO>('/api/dishwasher-schema', { signal })
-}
-
-/**
- * POST /api/ingest — one document through the whole pipeline.
- *
- * multipart/form-data, not JSON: the endpoint takes Form(...) fields and an
- * UploadFile. `Content-Type` is deliberately not set — the browser has to add
- * its own multipart boundary.
- */
-export async function ingestOne(input: {
-  category: string
-  inputType: InputType
-  file?: File
-  text?: string
-  url?: string
-}): Promise<IngestResultDTO> {
-  const body = new FormData()
-  body.append('category', input.category)
-  body.append('input_type', input.inputType)
-  if (input.file) body.append('file', input.file)
-  if (input.text) body.append('text_content', input.text)
-  if (input.url) body.append('url', input.url)
-
-  return request<IngestResultDTO>('/api/ingest', { method: 'POST', body })
-}
-
-/**
- * POST /api/ingest/batch — several files in one request.
- *
- * The endpoint types each upload from its filename extension and rejects
- * anything but .pdf/.csv, so the caller must not send other formats.
- * Synchronous on the backend: it holds the connection until every item is
- * done, which is why callers need a generous timeout and a pending state.
- */
-export async function ingestBatch(input: {
-  category: string
-  files: File[]
-}): Promise<BatchIngestResultDTO> {
-  const body = new FormData()
-  body.append('category', input.category)
-  for (const file of input.files) body.append('files', file)
-
-  return request<BatchIngestResultDTO>('/api/ingest/batch', {
-    method: 'POST',
-    body,
-  })
-}
-
-/** POST /api/products/{id}/mark-for-review — sets status to "needs_review". */
-export async function markProductForReview(
-  id: string,
-): Promise<StatusChangeDTO> {
-  return request<StatusChangeDTO>(
-    `/api/products/${encodeURIComponent(id)}/mark-for-review`,
-    { method: 'POST' },
-  )
 }
 
 /** GET /api/evaluation-report — tier scores, before/after comparison, and NOT_BUILT scope. */
