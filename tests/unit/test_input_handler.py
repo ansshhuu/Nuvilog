@@ -95,10 +95,15 @@ def test_url_input_strips_chrome_and_collects_tables(monkeypatch):
     class FakeResponse:
         status_code = 200
         text = html
+        is_redirect = False
 
         def raise_for_status(self):
             return None
 
+    # Bypass the SSRF guard (_is_unsafe_target) rather than let it run for
+    # real: it does a live DNS lookup, which is exactly the network call
+    # this file's docstring promises not to make.
+    monkeypatch.setattr(input_handler, "_is_unsafe_target", lambda url: False)
     monkeypatch.setattr(input_handler.requests, "get", lambda *a, **k: FakeResponse())
 
     doc = handle_input("url", "https://example.com/product")
@@ -115,10 +120,12 @@ def test_url_input_strips_chrome_and_collects_tables(monkeypatch):
 def test_url_input_propagates_http_errors(monkeypatch):
     class FailingResponse:
         status_code = 404
+        is_redirect = False
 
         def raise_for_status(self):
             raise RuntimeError("404 Not Found")
 
+    monkeypatch.setattr(input_handler, "_is_unsafe_target", lambda url: False)
     monkeypatch.setattr(input_handler.requests, "get", lambda *a, **k: FailingResponse())
 
     with pytest.raises(RuntimeError):
