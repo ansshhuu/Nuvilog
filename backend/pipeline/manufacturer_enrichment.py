@@ -45,10 +45,12 @@ the product."
 """
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -62,6 +64,7 @@ from pipeline.types import RawDocument
 
 FETCH_TIMEOUT_SECONDS = 10
 MAX_PAGE_TEXT_CHARS = 20_000
+MAX_REDIRECTS = 5
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -88,30 +91,112 @@ def _is_disallowed_marketplace(url: str) -> bool:
     return any(host == d or host.endswith(f".{d}") for d in _DISALLOWED_MARKETPLACE_DOMAINS)
 
 
+def _is_unsafe_target(url: str) -> bool:
+    """SSRF guard: refuse anything that isn't a plain http(s) request to a
+    public internet host.
+
+    Not currently reachable by user input — both call sites pass a
+    hardcoded MFR URL from the 2 known ground-truth rows — but
+    fetch_manufacturer_page() takes a bare `url: str` with no caller-side
+    restriction, so the moment this becomes an API parameter (a search
+    step, a "try another URL" feature) this function is the only thing
+    standing between that param and a GET against the cloud metadata
+    endpoint (169.254.169.254), localhost, or an internal 10.x/172.16.x/
+    192.168.x service. Cheap insurance now beats an incident later.
+
+    Checks the scheme, then every IP the hostname actually resolves to
+    (not just a literal-IP string check) — a hostname that resolves to a
+    private/loopback/link-local/reserved address is rejected the same as
+    a literal one, which is what stops "internal-service.local" or a
+    DNS-rebinding attempt from sailing through a hostname-only check.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return True
+
+    host = parsed.hostname
+    if not host:
+        return True
+
+    try:
+        addrs = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        # Can't resolve it, so it can't be fetched either — not a
+        # security failure, but not a "safe" target either.
+        return True
+
+    for family, _, _, _, sockaddr in addrs:
+        ip_str = sockaddr[0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return True
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            return True
+
+    return False
+
+
 def fetch_manufacturer_page(url: str) -> Optional[str]:
     """Plain GET on `url`, return the page's visible text — or None.
 
     None covers every failure mode on purpose (bad URL, timeout, 4xx/5xx,
-    blocked, empty body, or a disallowed marketplace domain): this
-    function never raises for a fetch problem, because a single dead
-    manufacturer link must not crash a pipeline run. It's still a fetch
-    problem worth knowing about, so callers should log/print `None`
-    rather than silently treat it as "field genuinely absent" — those are
-    different facts (see manufacturer_enrichment's script-level self-test
-    for exactly that distinction).
+    blocked, empty body, a disallowed marketplace domain, or a non-public
+    target per `_is_unsafe_target`): this function never raises for a
+    fetch problem, because a single dead manufacturer link must not crash
+    a pipeline run. It's still a fetch problem worth knowing about, so
+    callers should log/print `None` rather than silently treat it as
+    "field genuinely absent" — those are different facts (see
+    manufacturer_enrichment's script-level self-test for exactly that
+    distinction).
     """
     if not url or not url.strip():
         return None
     if _is_disallowed_marketplace(url):
         return None
+    if _is_unsafe_target(url):
+        return None
 
+    # Redirects are followed manually, one hop at a time, re-running both
+    # safety checks on every hop's target before following it — a plain
+    # `allow_redirects=True` would let a first hop that passes the checks
+    # 302 straight into a private address, which is a well-known way to
+    # bypass exactly this kind of guard. `allow_redirects=False` outright
+    # was considered and rejected: this fetch already has documented live
+    # flakiness (see module docstring — a real target has failed with a
+    # timeout in one run and succeeded in another), and disabling
+    # redirects entirely risks breaking a legitimate manufacturer-site
+    # redirect (www normalization, http->https) that isn't a security
+    # problem at all.
+    current_url = url
     try:
-        response = requests.get(
-            url,
-            timeout=FETCH_TIMEOUT_SECONDS,
-            headers={"User-Agent": USER_AGENT},
-        )
-        response.raise_for_status()
+        for _ in range(MAX_REDIRECTS):
+            response = requests.get(
+                current_url,
+                timeout=FETCH_TIMEOUT_SECONDS,
+                headers={"User-Agent": USER_AGENT},
+                allow_redirects=False,
+            )
+            if response.is_redirect:
+                next_url = response.headers.get("Location")
+                if not next_url:
+                    return None
+                current_url = urljoin(current_url, next_url)
+                if _is_disallowed_marketplace(current_url) or _is_unsafe_target(current_url):
+                    return None
+                continue
+            response.raise_for_status()
+            break
+        else:
+            # Exhausted MAX_REDIRECTS without landing on a final response.
+            return None
     except requests.RequestException:
         return None
 

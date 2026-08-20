@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FileText, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { StatusDot } from './StatusDot'
+import { StatusDot } from '@/components/StatusDot'
 import { formatFieldName, type ReviewField } from '@/lib/fields'
 import type { MentionDTO } from '@/lib/api-types'
 

@@ -459,7 +459,7 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
           className="flex items-center gap-1.5 font-sans text-xs uppercase tracking-[0.1em] text-text-muted transition-colors hover:text-text-primary"
         >
           <ChevronLeft size={12} strokeWidth={1.75} />
-          Back to Products
+          Back to Evaluation Report
         </button>
 
         {/* Pager */}

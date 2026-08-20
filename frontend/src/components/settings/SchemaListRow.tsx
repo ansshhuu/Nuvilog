@@ -4,17 +4,18 @@ import { cn } from '@/lib/utils'
 import { categoryIcon } from '@/lib/categoryIcons'
 import { OverflowMenu } from './OverflowMenu'
 import { SchemaFieldTable } from './SchemaFieldTable'
-import type { SchemaFieldDTO } from '@/lib/api-types'
+import type { DishwasherFieldDTO } from '@/lib/api-types'
 
 export interface SchemaSummary {
   id: string
   displayName: string
   description: string
-  fields: SchemaFieldDTO[]
+  fields: DishwasherFieldDTO[]
   /**
-   * Null rather than a fabricated date — the schema registry loads from
-   * YAML on process start and does not track per-file edit history, so
-   * there is no real timestamp to show yet.
+   * Null rather than a fabricated date — dishwasher_schema.py is imported
+   * once at process start and carries no per-file edit history, so there is
+   * no real timestamp to show yet. Same honest-placeholder treatment as the
+   * old fastener/electrical/plumbing screen used for this column.
    */
   lastUpdated: string | null
 }
@@ -120,7 +121,10 @@ export function SchemaListRow({
           {schema.lastUpdated ?? '—'}
         </span>
 
-        <OverflowMenu label={schema.displayName} />
+        <OverflowMenu
+          label={schema.displayName}
+          reason="Not yet implemented — the scaffold lives in dishwasher_schema.py, not an editable file"
+        />
       </div>
 
       {expanded && (

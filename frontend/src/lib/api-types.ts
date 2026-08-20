@@ -145,6 +145,39 @@ export interface CategoryDTO {
 
 export type CategoriesDTO = Record<string, CategoryDTO>
 
+/**
+ * backend/pipeline/dishwasher_schema.py::DishwasherAttribute, as returned in
+ * DishwasherSchemaDTO.fields. Deliberately narrower than SchemaFieldDTO —
+ * the dataclass it mirrors has no `type`, `required`, or `valid_range`
+ * concept, so this type doesn't carry fields that don't exist server-side.
+ */
+export interface DishwasherFieldDTO {
+  index: number
+  label: string
+  unit: string | null
+  evidence: string
+}
+
+/**
+ * One entry of GET /api/dishwasher-schema's `not_built` array —
+ * backend/pipeline/inferred_rules.py::NOT_BUILT, filtered to the 5
+ * other-appliance-sub-type attribute scaffolds.
+ */
+export interface NotBuiltSubTypeDTO {
+  sub_type: string
+  row_count: number | null
+  reason: string
+}
+
+/** GET /api/dishwasher-schema */
+export interface DishwasherSchemaDTO {
+  category: string
+  display_name: string
+  description: string
+  fields: DishwasherFieldDTO[]
+  not_built: NotBuiltSubTypeDTO[]
+}
+
 /** POST /api/ingest */
 export interface IngestResultDTO {
   product_id: string

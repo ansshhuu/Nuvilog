@@ -2,6 +2,7 @@ import type {
   BatchIngestResultDTO,
   CategoriesDTO,
   DescriptionFormatsDTO,
+  DishwasherSchemaDTO,
   EvaluationReportDTO,
   IngestResultDTO,
   InputType,
@@ -99,6 +100,14 @@ export async function fetchCategories(
   signal?: AbortSignal,
 ): Promise<CategoriesDTO> {
   return request<CategoriesDTO>('/api/categories', { signal })
+}
+
+/** GET /api/dishwasher-schema — the real 15-slot dishwasher attribute
+ * scaffold, plus the other-appliance sub-types confirmed NOT_BUILT. */
+export async function fetchDishwasherSchema(
+  signal?: AbortSignal,
+): Promise<DishwasherSchemaDTO> {
+  return request<DishwasherSchemaDTO>('/api/dishwasher-schema', { signal })
 }
 
 /**

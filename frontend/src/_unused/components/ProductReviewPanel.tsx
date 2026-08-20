@@ -3,9 +3,9 @@ import { Bolt, Hexagon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { ReviewField } from '@/lib/fields'
-import { FieldReviewTable } from './FieldReviewTable'
-import { ProductSchematic } from './ProductSchematic'
-import { InlineError, SkeletonRows } from './Feedback'
+import { FieldReviewTable } from '@/components/FieldReviewTable'
+import { ProductSchematic } from '@/components/ProductSchematic'
+import { InlineError, SkeletonRows } from '@/components/Feedback'
 
 const TABS = [
   { id: 'fields', label: 'Field Review' },

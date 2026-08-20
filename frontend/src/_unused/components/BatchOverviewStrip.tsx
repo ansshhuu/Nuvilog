@@ -2,8 +2,8 @@ import { Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { STATUS_TEXT_CLASS, statusShares, type Status } from '@/lib/status'
-import { StatusDotGrid } from './StatusDotGrid'
-import { InlineError, SkeletonBar } from './Feedback'
+import { StatusDotGrid } from '@/components/StatusDotGrid'
+import { InlineError, SkeletonBar } from '@/components/Feedback'
 
 export interface BatchSummary {
   id: string

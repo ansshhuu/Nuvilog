@@ -7,7 +7,7 @@ import {
   STATUS_TEXT_CLASS,
   type StatusCounts,
 } from '@/lib/status'
-import { StatusDot } from './StatusDot'
+import { StatusDot } from '@/components/StatusDot'
 
 export interface BottomActionBarProps {
   /** Per-status tallies for the selected product's fields. */

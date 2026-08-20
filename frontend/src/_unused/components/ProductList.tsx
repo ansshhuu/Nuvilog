@@ -3,8 +3,8 @@ import { ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { STATUS_TEXT_CLASS, statusShares, type Status } from '@/lib/status'
-import { StatusDot } from './StatusDot'
-import { InlineError, SkeletonBar } from './Feedback'
+import { StatusDot } from '@/components/StatusDot'
+import { InlineError, SkeletonBar } from '@/components/Feedback'
 
 const PAGE_SIZE = 7
 

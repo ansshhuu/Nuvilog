@@ -7,7 +7,7 @@ import {
   sourceContext,
   type ReviewField,
 } from '@/lib/fields'
-import { InlineError, SkeletonBar } from './Feedback'
+import { InlineError, SkeletonBar } from '@/components/Feedback'
 
 export interface SourceTableRow {
   item: string

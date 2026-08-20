@@ -1,28 +1,24 @@
 import {
-  AlertTriangle,
   BarChart2,
-  Database,
-  FileText,
   GitBranch,
   Globe,
-  LayoutGrid,
   Settings,
-  Upload,
   type LucideIcon,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-export type NavItemId =
-  | 'dashboard'
-  | 'ingest'
-  | 'documents'
-  | 'sources'
-  | 'flags'
-  | 'pipeline'
-  | 'enrichment'
-  | 'analytics'
-  | 'settings'
+// 'dashboard' and 'ingest' removed from the reachable nav — those screens
+// were built for the old fastener-domain demo (Supabase product review +
+// upload flow) and don't fit this domain. Components moved to
+// src/_unused/, not deleted, in case any of it's salvageable later.
+//
+// 'documents', 'sources', 'flags' removed too — they never had a screen
+// (App.tsx fell through to the dashboard, then to analytics, for all
+// three), so they were dead clicks with no real destination. The 4
+// remaining entries are the entire demo path: every one of them routes to
+// a real, data-backed view in App.tsx.
+export type NavItemId = 'pipeline' | 'enrichment' | 'analytics' | 'settings'
 
 interface NavItem {
   id: NavItemId
@@ -31,16 +27,9 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
-  // The nav had no upload entry before — Documents/Sources are both read
-  // views. Added rather than repurposed, so "ingest" is its own destination.
-  { id: 'ingest', label: 'Ingest New Data', icon: Upload },
-  { id: 'documents', label: 'Documents', icon: FileText },
-  { id: 'sources', label: 'Sources', icon: Database },
-  { id: 'flags', label: 'Flagged', icon: AlertTriangle },
-  { id: 'pipeline', label: 'Pipeline', icon: GitBranch },
-  { id: 'enrichment', label: 'Enrichment', icon: Globe },
-  { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+  { id: 'analytics', label: 'Evaluation Report', icon: BarChart2 },
+  { id: 'pipeline', label: 'Description Formats', icon: GitBranch },
+  { id: 'enrichment', label: 'Manufacturer Enrichment', icon: Globe },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

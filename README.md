@@ -1,6 +1,6 @@
 # Nuvilog
 
-Turns Unilog's raw dishwasher catalog rows into structured, enriched product records — and is honest about what it can and can't verify.
+Turns Unilog's raw dishwasher catalog rows into structured, enriched product records and is honest about what it can and can't verify.
 
 ## What it does
 
@@ -8,24 +8,23 @@ Input is Unilog's 1000-row raw product catalog (6 columns: brand fields, model, 
 
 ## Why it's different
 
-- Confidence is scored from real evidence (source-text matches, verified fetches) — never an LLM rating its own output
-- Every gap is explicitly flagged `NOT_BUILT` with a real row count, never silently guessed or padded
+- Confidence is scored from real evidence (source-text matches, verified fetches)  never an LLM rating its own output
 - Self-tested against real ground truth at every pipeline step, not just internal consistency checks
 
 ## Scope
 
-The pipeline is proven on 10 real dishwasher rows, 2 of which (`PDSH4816AF`, `WDTS7024RZ`) have verified ground truth to score against. The other 8 dishwasher rows and the remaining 990 rows (other appliance categories) are explicitly flagged `NOT_BUILT` with their real row counts rather than run through unverified — there's no ground truth to check the output against for the rest, so nothing is claimed for it.
+The pipeline is proven on 10 real dishwasher rows, 2 of which (`PDSH4816AF`, `WDTS7024RZ`) have verified ground truth to score against. The other 8 dishwasher rows and the remaining 990 rows (other appliance categories) are explicitly flagged `NOT_BUILT` with their real row counts rather than run through unverified  there's no ground truth to check the output against for the rest, so nothing is claimed for it.
 
 ## Pipeline
 
-1. **Data prep** (`step1_data_prep.py`) — load and clean the raw 1000-row CSV
-2. **Schema** (`delivery_format.py`) — the 252-column delivery format target
+1. **Data prep** (`step1_data_prep.py`) -load and clean the raw 1000-row CSV
+2. **Schema** (`delivery_format.py`) - the 252-column delivery format target
 3. **UOM/fraction normalize** (`uom_normalizer.py`, `fraction_converter.py`) — units and fractional dimensions to a consistent format
-4. **Manufacturer/brand honesty layer** (`step4_manufacturer.py`) — vendor clustering and code parsing, no fabrication
-5. **Dishwasher scaffold** (`step5_dishwasher_schema.py`) — 15-label attribute structure, blank unless evidenced
-6. **Description builder** (`step6_description_builder.py`) — generates commerce descriptions from verified fields only
-7. **Manufacturer enrichment** (`step8_manufacturer_enrichment.py`) — real fetch of manufacturer pages, measured attribute lift
-8. **Evaluation harness** (`step2_evaluate.py`) — self-tests, then scores real output against ground truth
+4. **Manufacturer/brand honesty layer** (`step4_manufacturer.py`) -vendor clustering and code parsing, no fabrication
+5. **Dishwasher scaffold** (`step5_dishwasher_schema.py`) - 15-label attribute structure, blank unless evidenced
+6. **Description builder** (`step6_description_builder.py`) -generates commerce descriptions from verified fields only
+7. **Manufacturer enrichment** (`step8_manufacturer_enrichment.py`) - real fetch of manufacturer pages, measured attribute lift
+8. **Evaluation harness** (`step2_evaluate.py`) -self-tests, then scores real output against ground truth
 
 ## Getting started
 
@@ -67,5 +66,3 @@ npm run dev
 ```bash
 python backend/scripts/step6_7_full_run.py
 ```
-
-Full eval numbers live in `backend/reports/`, not copy-pasted into this file — that way this README doesn't go stale.

@@ -3,10 +3,8 @@ import { useState } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import type { NavItemId } from '@/components/layout/Sidebar'
 import { CategorySchemasView } from '@/views/CategorySchemasView'
-import { DashboardView } from '@/views/DashboardView'
 import { DescriptionFormatsView } from '@/views/DescriptionFormatsView'
 import { EvaluationReportView } from '@/views/EvaluationReportView'
-import { IngestView } from '@/views/IngestView'
 import { ManufacturerEnrichmentView } from '@/views/ManufacturerEnrichmentView'
 
 // Placeholder still: the backend has no project or user concept — no table,
@@ -15,15 +13,16 @@ const PROJECT = 'CATALOGIQ'
 const USER = 'ANSSHHUU'
 
 function App() {
-  const [activeItem, setActiveItem] = useState<NavItemId>('dashboard')
+  const [activeItem, setActiveItem] = useState<NavItemId>('analytics')
 
-  // Four built destinations so far. The other nav entries have no screen yet
-  // and fall through to the dashboard, as they did before this split.
+  // Every NavItemId now maps to a real view — no fallthrough placeholders
+  // left. 'analytics' is both the default and the final `else` branch below,
+  // which is redundant only in the sense that every id is covered exactly
+  // once; it stays an if/else-if chain rather than a lookup map so each
+  // view's required props (onBack, etc.) stay inline and type-checked.
   //
   // Mounting one or the other (rather than hiding one with CSS) is what keeps
-  // each view's fetches scoped to the time it is actually on screen — and it
-  // means returning to the dashboard after an ingest refetches the product
-  // list, so a newly ingested product is there without a manual reload.
+  // each view's fetches scoped to the time it is actually on screen.
   return (
     <AppShell
       activeItem={activeItem}
@@ -31,18 +30,14 @@ function App() {
       project={PROJECT}
       user={USER}
     >
-      {activeItem === 'ingest' ? (
-        <IngestView onIngested={() => setActiveItem('dashboard')} />
-      ) : activeItem === 'settings' ? (
+      {activeItem === 'settings' ? (
         <CategorySchemasView />
-      ) : activeItem === 'analytics' ? (
-        <EvaluationReportView />
       ) : activeItem === 'pipeline' ? (
-        <DescriptionFormatsView onBack={() => setActiveItem('dashboard')} />
+        <DescriptionFormatsView onBack={() => setActiveItem('analytics')} />
       ) : activeItem === 'enrichment' ? (
-        <ManufacturerEnrichmentView onBack={() => setActiveItem('dashboard')} />
+        <ManufacturerEnrichmentView onBack={() => setActiveItem('analytics')} />
       ) : (
-        <DashboardView />
+        <EvaluationReportView />
       )}
     </AppShell>
   )

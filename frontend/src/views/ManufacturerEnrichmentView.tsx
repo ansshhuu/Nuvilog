@@ -158,9 +158,19 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
 
       {/* Record Pager (mimics DescriptionFormatsView) */}
       <div className="flex items-center justify-between border-b border-border bg-background px-6 py-2 shrink-0">
-        <span className="font-mono text-xs text-text-muted uppercase tracking-[0.05em]">
-          Record {data.record + 1} of {data.total}
-        </span>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 font-sans text-xs uppercase tracking-[0.1em] text-text-muted transition-colors hover:text-text-primary"
+          >
+            <ChevronLeft size={12} strokeWidth={1.75} />
+            Back to Evaluation Report
+          </button>
+          <span className="font-mono text-xs text-text-muted uppercase tracking-[0.05em]">
+            Record {data.record + 1} of {data.total}
+          </span>
+        </div>
         <div className="flex gap-2">
           <button
             type="button"

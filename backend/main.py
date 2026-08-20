@@ -26,8 +26,10 @@ from models.db import SupabaseSession as Session
 from pipeline.batch_runner import BatchItem, run_batch_async, summarize
 from pipeline.confidence_engine import score_fields
 from pipeline.contradiction_detector import detect_contradictions
+from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_SCAFFOLD
 from pipeline.enrichment import enrich
 from pipeline.extractor import extract_fields
+from pipeline.inferred_rules import NOT_BUILT
 from pipeline.input_handler import handle_input
 from pipeline.llm_client import LLMClient
 from pipeline.persistence import persist_product
@@ -624,6 +626,49 @@ def list_categories() -> dict:
             "fields": [f.model_dump() for f in s.fields],
         }
         for category, s in schemas.items()
+    }
+
+
+@app.get("/api/dishwasher-schema")
+def get_dishwasher_schema() -> dict:
+    """The real 15-slot dishwasher scaffold from pipeline/dishwasher_schema.py,
+    plus the 5 other-appliance sub-types confirmed NOT_BUILT (pipeline/
+    inferred_rules.py) rather than guessed from Part_Desc text.
+
+    The scaffold has no `type`, `required`, or `valid_range` concept — those
+    are schema_registry.py/FieldDef ideas, and dishwasher_schema.py's
+    DishwasherAttribute dataclass simply doesn't carry them. Only `unit`
+    (`typical_uom`, null for free-text labels) and `evidence` (the note each
+    slot's UOM/format was confirmed against) are real fields on it — this
+    endpoint returns exactly that, nothing invented to fill the other columns.
+    """
+    fields = [
+        {
+            "index": attr.index,
+            "label": attr.label,
+            "unit": attr.typical_uom,
+            "evidence": attr.evidence,
+        }
+        for attr in DISHWASHER_ATTRIBUTE_SCAFFOLD
+    ]
+
+    not_built = []
+    for name, reason in NOT_BUILT:
+        if not name.endswith("attribute scaffold") or name == "dishwasher attribute scaffold":
+            continue
+        match = re.search(r"(\d+) real", reason)
+        not_built.append({
+            "sub_type": name.removesuffix(" attribute scaffold"),
+            "row_count": int(match.group(1)) if match else None,
+            "reason": reason,
+        })
+
+    return {
+        "category": "DISHWASHER",
+        "display_name": "Dishwasher",
+        "description": "The only sub-type with ground-truth evidence behind its attribute scaffold.",
+        "fields": fields,
+        "not_built": not_built,
     }
 
 
