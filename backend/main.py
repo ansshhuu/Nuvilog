@@ -384,8 +384,6 @@ def _format_rule_payload(field_name: str, specs: dict) -> dict:
     # Only HIGH-confidence rules are presented as authoritative per spec.
     is_authoritative = confidence == "high"
 
-    separators = "Comma" if "comma" in spec.rule.lower() else "Space"
-
     return {
         "field": field_name,
         "confidence": confidence,
