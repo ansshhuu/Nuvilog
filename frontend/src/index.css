@@ -26,8 +26,37 @@
     --color-status-unverified: #f87171;
     --color-status-contradiction: #a78bfa;
 
+    /* Dashed "not built / out of scope" indicator. Its own token (rather than
+       reusing text-muted) so the light-mode value can be tuned independently
+       for dashed-border visibility. */
+    --color-not-built: #8a8b90;
+
     --color-scrollbar-thumb: #3a3b3f;
     --color-scrollbar-thumb-hover: #55565b;
+  }
+
+  /* Light theme: same token set, swapped via data-theme="light" on <html>.
+     Status hues are darkened a step so they hold contrast on a near-white
+     background (amber in particular washes out at the dark-mode value). */
+  :root[data-theme='light'] {
+    --color-background: #fafafa;
+    --color-surface: #f0f0f2;
+    --color-border: #d8d8dc;
+    --color-text-primary: #18181b;
+    --color-text-muted: #6b6b70;
+    --color-accent: #ff6b35;
+
+    --color-selected: #ff6b35;
+
+    --color-status-verbatim: #16a34a;
+    --color-status-inferred: #d97706;
+    --color-status-unverified: #dc2626;
+    --color-status-contradiction: #7c3aed;
+
+    --color-not-built: #8f8f95;
+
+    --color-scrollbar-thumb: #c4c4c8;
+    --color-scrollbar-thumb-hover: #a8a8ae;
   }
 
   /* Themed scrollbars everywhere, rather than per-component: any container

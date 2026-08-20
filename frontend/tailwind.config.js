@@ -15,6 +15,7 @@ export default {
         'status-inferred': 'var(--color-status-inferred)',
         'status-unverified': 'var(--color-status-unverified)',
         'status-contradiction': 'var(--color-status-contradiction)',
+        'not-built': 'var(--color-not-built)',
       },
       /**
        * Density scale. The mockup is a dense instrument panel, not a

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AppShell } from '@/components/layout/AppShell'
 import type { NavItemId } from '@/components/layout/Sidebar'
+import { useTheme } from '@/hooks/useTheme'
 import { CategorySchemasView } from '@/views/CategorySchemasView'
 import { DescriptionFormatsView } from '@/views/DescriptionFormatsView'
 import { EvaluationReportView } from '@/views/EvaluationReportView'
@@ -14,6 +15,7 @@ const USER = 'ANSSHHUU'
 
 function App() {
   const [activeItem, setActiveItem] = useState<NavItemId>('analytics')
+  const { theme, toggleTheme } = useTheme()
 
   // Every NavItemId now maps to a real view — no fallthrough placeholders
   // left. 'analytics' is both the default and the final `else` branch below,
@@ -29,6 +31,8 @@ function App() {
       onNavigate={setActiveItem}
       project={PROJECT}
       user={USER}
+      theme={theme}
+      onToggleTheme={toggleTheme}
     >
       {activeItem === 'settings' ? (
         <CategorySchemasView />

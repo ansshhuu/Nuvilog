@@ -138,7 +138,7 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
           )}
           {data.status === 'not_attempted' && (
             <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1 bg-surface shadow-sm">
-              <span className="inline-block shrink-0 rounded-full h-2 w-2 border border-dashed border-text-muted" />
+              <span className="inline-block shrink-0 rounded-full h-2 w-2 border border-dashed border-not-built" />
               <span className="font-sans text-2xs uppercase tracking-[0.1em] text-text-muted">
                 NOT ATTEMPTED
               </span>
@@ -311,7 +311,7 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="inline-block shrink-0 rounded-full h-2 w-2 border border-dashed border-text-muted" />
+                          <span className="inline-block shrink-0 rounded-full h-2 w-2 border border-dashed border-not-built" />
                           <span className="text-text-muted">NOT RECOVERED</span>
                         </div>
                       )}

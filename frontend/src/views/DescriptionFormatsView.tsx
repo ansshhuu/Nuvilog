@@ -59,7 +59,7 @@ function StatusLegend() {
           {entry.dashed ? (
             <span
               className="inline-flex h-2 w-2 shrink-0 items-center justify-center rounded-full border border-dashed"
-              style={{ borderColor: 'var(--color-text-muted)' }}
+              style={{ borderColor: 'var(--color-not-built)' }}
             />
           ) : (
             <StatusDot status={entry.status!} size="sm" />

@@ -1,8 +1,12 @@
-import { ChevronDown, FileOutput } from 'lucide-react'
+import { ChevronDown, FileOutput, Moon, Sun } from 'lucide-react'
+
+import type { Theme } from '@/hooks/useTheme'
 
 export interface TopBarProps {
   project: string
   user: string
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 const NO_PROJECT_CONCEPT =
@@ -39,7 +43,9 @@ function Selector({ label, value }: SelectorProps) {
   )
 }
 
-export function TopBar({ project, user }: TopBarProps) {
+export function TopBar({ project, user, theme, onToggleTheme }: TopBarProps) {
+  const isLight = theme === 'light'
+
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background pl-8 pr-6">
       <span className="font-sans text-base font-medium uppercase tracking-[0.32em] text-text-primary">
@@ -49,6 +55,19 @@ export function TopBar({ project, user }: TopBarProps) {
       <div className="flex items-center gap-6">
         <Selector label="Project" value={project} />
         <Selector label="User" value={user} />
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+          title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+          className="ml-2 flex h-8 w-8 items-center justify-center text-text-muted transition-colors hover:text-text-primary"
+        >
+          {isLight ? (
+            <Moon size={13} strokeWidth={1.75} />
+          ) : (
+            <Sun size={13} strokeWidth={1.75} />
+          )}
+        </button>
         <button
           type="button"
           disabled
