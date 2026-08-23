@@ -41,8 +41,11 @@ export async function loginThroughUi(
   password: string = VALID_PASSWORD,
 ) {
   await page.goto('/')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
+  await page.getByLabel('Email', { exact: true }).fill(email)
+  // exact: true — the show/hide password toggle button carries an
+  // aria-label of "Show password"/"Hide password", which getByLabel's
+  // default substring match would otherwise also pick up.
+  await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: /sign in/i }).click()
 }
 
