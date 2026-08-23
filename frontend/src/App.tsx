@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { AppShell } from '@/components/layout/AppShell'
 import type { NavItemId } from '@/components/layout/Sidebar'
+import { PostLoginTransition } from '@/components/PostLoginTransition'
 import { useSession } from '@/hooks/useSession'
 import { useTheme } from '@/hooks/useTheme'
+import type { Session } from '@/lib/session'
 import { CategorySchemasView } from '@/views/CategorySchemasView'
 import { DescriptionFormatsView } from '@/views/DescriptionFormatsView'
 import { EvaluationReportView } from '@/views/EvaluationReportView'
@@ -19,11 +21,20 @@ function App() {
   const [activeItem, setActiveItem] = useState<NavItemId>('analytics')
   const { theme, toggleTheme } = useTheme()
   const { session, login, logout } = useSession()
+  const [showTransition, setShowTransition] = useState(false)
+
+  const handleLogin = useCallback(
+    (next: Session) => {
+      login(next)
+      setShowTransition(true)
+    },
+    [login],
+  )
 
   // No valid session -> the login screen is the entire app; nothing behind
   // it renders or fetches.
   if (!session) {
-    return <LoginView onLogin={login} theme={theme} onToggleTheme={toggleTheme} />
+    return <LoginView onLogin={handleLogin} theme={theme} onToggleTheme={toggleTheme} />
   }
 
   // Every NavItemId now maps to a real view — no fallthrough placeholders
@@ -35,26 +46,29 @@ function App() {
   // Mounting one or the other (rather than hiding one with CSS) is what keeps
   // each view's fetches scoped to the time it is actually on screen.
   return (
-    <AppShell
-      activeItem={activeItem}
-      onNavigate={setActiveItem}
-      project={PROJECT}
-      email={session.email}
-      role={session.role}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      onLogout={logout}
-    >
-      {activeItem === 'settings' ? (
-        <CategorySchemasView />
-      ) : activeItem === 'pipeline' ? (
-        <DescriptionFormatsView onBack={() => setActiveItem('analytics')} />
-      ) : activeItem === 'enrichment' ? (
-        <ManufacturerEnrichmentView onBack={() => setActiveItem('analytics')} />
-      ) : (
-        <EvaluationReportView />
-      )}
-    </AppShell>
+    <>
+      <AppShell
+        activeItem={activeItem}
+        onNavigate={setActiveItem}
+        project={PROJECT}
+        email={session.email}
+        role={session.role}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={logout}
+      >
+        {activeItem === 'settings' ? (
+          <CategorySchemasView />
+        ) : activeItem === 'pipeline' ? (
+          <DescriptionFormatsView onBack={() => setActiveItem('analytics')} />
+        ) : activeItem === 'enrichment' ? (
+          <ManufacturerEnrichmentView onBack={() => setActiveItem('analytics')} />
+        ) : (
+          <EvaluationReportView />
+        )}
+      </AppShell>
+      {showTransition && <PostLoginTransition onDone={() => setShowTransition(false)} />}
+    </>
   )
 }
 
