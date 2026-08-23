@@ -18,8 +18,10 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
+from auth import check_credentials, issue_token, require_auth
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from models.db import Product, get_db, init_db
 from models.db import SupabaseSession as Session
@@ -47,6 +49,25 @@ app.add_middleware(
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    email: str
+    role: str
+
+
+@app.post("/api/login")
+def login(body: LoginRequest) -> LoginResponse:
+    role = check_credentials(body.email, body.password)
+    if role is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return LoginResponse(token=issue_token(body.email, role), email=body.email, role=role)
 
 # Ceiling on one synchronous batch request — see ingest_batch's docstring for
 # why the endpoint waits rather than handing back a batch_id.
@@ -193,7 +214,7 @@ def _not_built_entry(name: str, reason: str) -> dict:
 
 
 @app.get("/api/evaluation-report")
-def get_evaluation_report() -> dict:
+def get_evaluation_report(_auth: dict = Depends(require_auth)) -> dict:
     """Read-only evaluation report.
 
     Derives structured Tier 1/2/3 scores from ``step6_7_report.json`` using
@@ -398,7 +419,7 @@ def _format_rule_payload(field_name: str, specs: dict) -> dict:
 
 
 @app.get("/api/description-formats")
-def get_description_formats(record: int = 0) -> dict:
+def get_description_formats(record: int = 0, _auth: dict = Depends(require_auth)) -> dict:
     """
     Per-row description format view.
 
@@ -413,6 +434,7 @@ def get_description_formats(record: int = 0) -> dict:
     The UI disables that button with an honest tooltip.
     """
     import csv as csv_module
+
     from pipeline.description_builder import DESCRIPTION_FIELDS, build_format_specs
 
     if not _DELIVERY_CSV.exists():
@@ -509,7 +531,7 @@ def get_description_formats(record: int = 0) -> dict:
 
 
 @app.get("/api/manufacturer-enrichment")
-def get_manufacturer_enrichment(record: int = 0) -> dict:
+def get_manufacturer_enrichment(record: int = 0, _auth: dict = Depends(require_auth)) -> dict:
     """
     Mock endpoint for Manufacturer Enrichment screen proof of concept.
     Returns deterministic results for the two known rows (PDSH4816AF and WDTS7024RZ)
@@ -615,7 +637,7 @@ def get_manufacturer_enrichment(record: int = 0) -> dict:
 
 
 @app.get("/api/categories")
-def list_categories() -> dict:
+def list_categories(_auth: dict = Depends(require_auth)) -> dict:
     schemas = registry.all_schemas()
     return {
         category: {
@@ -628,7 +650,7 @@ def list_categories() -> dict:
 
 
 @app.get("/api/dishwasher-schema")
-def get_dishwasher_schema() -> dict:
+def get_dishwasher_schema(_auth: dict = Depends(require_auth)) -> dict:
     """The real 15-slot dishwasher scaffold from pipeline/dishwasher_schema.py,
     plus the 5 other-appliance sub-types confirmed NOT_BUILT (pipeline/
     inferred_rules.py) rather than guessed from Part_Desc text.
@@ -678,6 +700,7 @@ async def ingest(
     url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
+    _auth: dict = Depends(require_auth),
 ) -> dict:
     """Run stage 1 (input handler) + stage 2 (extraction) + stage 4
     (confidence engine) + stage 5 (contradiction detection) on one product
@@ -757,6 +780,7 @@ async def ingest_batch(
     items: Optional[str] = Form(None),
     files: list[UploadFile] = File(default=[]),
     concurrency: Optional[int] = Form(None),
+    _auth: dict = Depends(require_auth),
 ) -> dict:
     """Stage 7: run the same stages 1-6 path over N inputs.
 
@@ -918,7 +942,9 @@ def _flag_payload(row: dict) -> dict:
 
 
 @app.get("/api/products")
-def list_products(limit: int = 200, db: Session = Depends(get_db)) -> dict:
+def list_products(
+    limit: int = 200, db: Session = Depends(get_db), _auth: dict = Depends(require_auth)
+) -> dict:
     """Every product with its fields and flags, newest first.
 
     Carries the full field and flag rows rather than a precomputed per-product
@@ -961,7 +987,9 @@ def list_products(limit: int = 200, db: Session = Depends(get_db)) -> dict:
 
 
 @app.post("/api/products/{product_id}/approve")
-def approve_product(product_id: str, db: Session = Depends(get_db)) -> dict:
+def approve_product(
+    product_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_auth)
+) -> dict:
     """Mark a reviewed product as approved.
 
     The only status transition the UI can make today. `status` is a plain
@@ -984,7 +1012,9 @@ def approve_product(product_id: str, db: Session = Depends(get_db)) -> dict:
 
 
 @app.post("/api/products/{product_id}/mark-for-review")
-def mark_product_for_review(product_id: str, db: Session = Depends(get_db)) -> dict:
+def mark_product_for_review(
+    product_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_auth)
+) -> dict:
     """Flag a product as needing another look.
 
     Same shape and same reasoning as approve_product above: one fixed literal,
@@ -1004,7 +1034,9 @@ def mark_product_for_review(product_id: str, db: Session = Depends(get_db)) -> d
 
 
 @app.get("/api/products/{product_id}")
-def get_product(product_id: str, db: Session = Depends(get_db)) -> dict:
+def get_product(
+    product_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_auth)
+) -> dict:
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")

@@ -59,7 +59,7 @@ from pipeline.dataset_loader import load_input_dataset  # noqa: E402
 from pipeline.delivery_format import load_delivery_format, load_worked_examples  # noqa: E402
 from pipeline.description_builder import DESCRIPTION_FIELDS  # noqa: E402
 from pipeline.dishwasher_schema import blank_dishwasher_scaffold, is_dishwasher  # noqa: E402
-from pipeline.evaluation import EvalResult, derive_zero_evidence_columns, evaluate_row  # noqa: E402
+from pipeline.evaluation import derive_zero_evidence_columns, evaluate_row  # noqa: E402
 from pipeline.llm_client import LLMClient  # noqa: E402
 from pipeline.manufacturer_normalizer import resolve_manufacturer  # noqa: E402
 from pipeline.rate_limiter import RateLimitedLLM, RateLimiter  # noqa: E402

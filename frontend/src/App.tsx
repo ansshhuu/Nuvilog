@@ -2,20 +2,29 @@ import { useState } from 'react'
 
 import { AppShell } from '@/components/layout/AppShell'
 import type { NavItemId } from '@/components/layout/Sidebar'
+import { useSession } from '@/hooks/useSession'
 import { useTheme } from '@/hooks/useTheme'
 import { CategorySchemasView } from '@/views/CategorySchemasView'
 import { DescriptionFormatsView } from '@/views/DescriptionFormatsView'
 import { EvaluationReportView } from '@/views/EvaluationReportView'
+import { LoginView } from '@/views/LoginView'
 import { ManufacturerEnrichmentView } from '@/views/ManufacturerEnrichmentView'
 
-// Placeholder still: the backend has no project or user concept — no table,
-// no auth. Left as constants rather than invented endpoints.
+// Placeholder still: the backend has no project concept — no table.
+// The user/role display is real now, sourced from the session (see
+// useSession.ts / backend/auth.py).
 const PROJECT = 'CATALOGIQ'
-const USER = 'ANSSHHUU'
 
 function App() {
   const [activeItem, setActiveItem] = useState<NavItemId>('analytics')
   const { theme, toggleTheme } = useTheme()
+  const { session, login, logout } = useSession()
+
+  // No valid session -> the login screen is the entire app; nothing behind
+  // it renders or fetches.
+  if (!session) {
+    return <LoginView onLogin={login} theme={theme} onToggleTheme={toggleTheme} />
+  }
 
   // Every NavItemId now maps to a real view — no fallthrough placeholders
   // left. 'analytics' is both the default and the final `else` branch below,
@@ -30,9 +39,11 @@ function App() {
       activeItem={activeItem}
       onNavigate={setActiveItem}
       project={PROJECT}
-      user={USER}
+      email={session.email}
+      role={session.role}
       theme={theme}
       onToggleTheme={toggleTheme}
+      onLogout={logout}
     >
       {activeItem === 'settings' ? (
         <CategorySchemasView />

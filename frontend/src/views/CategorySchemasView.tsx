@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, Plus, ShieldCheck } from 'lucide-react'
+import { Plus, ShieldCheck } from 'lucide-react'
 
 import { fetchDishwasherSchema } from '@/lib/api'
 import { useAsync } from '@/lib/useAsync'
@@ -9,41 +9,9 @@ import {
   SchemaListRow,
   type SchemaSummary,
 } from '@/components/settings/SchemaListRow'
-import { cn } from '@/lib/utils'
-import type { NotBuiltSubTypeDTO } from '@/lib/api-types'
 
 const ADD_FIELD_NOT_IMPLEMENTED =
   'Not yet implemented — edit dishwasher_schema.py directly'
-
-const NOT_BUILT_COL =
-  'grid grid-cols-[minmax(0,1.6fr)_100px_minmax(0,3fr)] items-start gap-x-4'
-
-function NotBuiltRow({ entry }: { entry: NotBuiltSubTypeDTO }) {
-  return (
-    <div
-      role="row"
-      aria-disabled
-      className={cn(
-        NOT_BUILT_COL,
-        'cursor-not-allowed border-b border-border px-5 py-3 opacity-50 last:border-b-0',
-      )}
-    >
-      <span role="cell" className="min-w-0 truncate font-mono text-2xs font-semibold uppercase tracking-[0.08em] text-text-primary">
-        {entry.sub_type}
-      </span>
-      <span role="cell" className="min-w-0 font-mono text-2xs text-text-muted">
-        {entry.row_count === null ? '—' : `${entry.row_count} rows`}
-      </span>
-      <span
-        role="cell"
-        title={entry.reason}
-        className="min-w-0 truncate font-mono text-2xs leading-relaxed text-text-muted"
-      >
-        {entry.reason}
-      </span>
-    </div>
-  )
-}
 
 /**
  * Settings > Category Schemas: dishwasher-only now — this project has one
@@ -90,9 +58,6 @@ export function CategorySchemasView() {
       setExpandedId(schemas[0].id)
     }
   }, [schemas])
-
-  const [notBuiltOpen, setNotBuiltOpen] = useState(false)
-  const notBuilt = schema.data?.not_built ?? []
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto px-8 py-6">
@@ -146,45 +111,6 @@ export function CategorySchemasView() {
           </div>
         )}
       </div>
-
-      {!schema.loading && !schema.error && notBuilt.length > 0 && (
-        <div className="pb-8">
-          <button
-            type="button"
-            onClick={() => setNotBuiltOpen((open) => !open)}
-            aria-expanded={notBuiltOpen}
-            className="flex items-center gap-2 font-sans text-3xs uppercase tracking-[0.16em] text-text-muted transition-colors hover:text-text-primary"
-          >
-            <ChevronRight
-              size={12}
-              strokeWidth={1.75}
-              className={cn('transition-transform duration-150', notBuiltOpen && 'rotate-90')}
-            />
-            Other Sub-Types — Not Built ({notBuilt.length})
-          </button>
-
-          {notBuiltOpen && (
-            <div className="mt-3 border border-border">
-              <div
-                role="row"
-                className={cn(
-                  NOT_BUILT_COL,
-                  'border-b border-border px-5 py-2.5 font-sans text-3xs uppercase tracking-[0.16em] text-text-muted',
-                )}
-              >
-                <span role="columnheader">Sub-Type</span>
-                <span role="columnheader">Real Rows</span>
-                <span role="columnheader">Why It's Not Built</span>
-              </div>
-              <div role="rowgroup">
-                {notBuilt.map((entry) => (
-                  <NotBuiltRow key={entry.sub_type} entry={entry} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

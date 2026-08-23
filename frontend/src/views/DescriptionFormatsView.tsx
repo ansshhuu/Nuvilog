@@ -10,6 +10,7 @@ import { StatusDot } from '@/components/StatusDot'
 import type { Status } from '@/lib/status'
 import { fetchDescriptionFormats } from '@/lib/api'
 import type { DescFormatDTO, DescRuleDTO, DescSourceFieldDTO } from '@/lib/api-types'
+import { TERM_TOOLTIPS } from '@/lib/term-tooltips'
 import { useAsync } from '@/lib/useAsync'
 import { cn } from '@/lib/utils'
 
@@ -41,21 +42,22 @@ interface LegendEntry {
   status?: Status
   label: string
   dashed?: boolean
+  tooltip: string
 }
 
 const LEGEND_ENTRIES: LegendEntry[] = [
-  { status: 'verbatim', label: 'VERBATIM / VERIFIED' },
-  { status: 'inferred', label: 'INFERRED' },
-  { status: 'unverified', label: 'UNVERIFIED' },
-  { status: 'contradiction', label: 'CONTRADICTION' },
-  { label: 'NOT BUILT / OUT OF SCOPE', dashed: true },
+  { status: 'verbatim', label: 'VERBATIM / VERIFIED', tooltip: TERM_TOOLTIPS.VERBATIM },
+  { status: 'inferred', label: 'INFERRED', tooltip: TERM_TOOLTIPS.INFERRED },
+  { status: 'unverified', label: 'UNVERIFIED', tooltip: TERM_TOOLTIPS.UNVERIFIED },
+  { status: 'contradiction', label: 'CONTRADICTION', tooltip: TERM_TOOLTIPS.CONTRADICTION },
+  { label: 'NOT BUILT / OUT OF SCOPE', dashed: true, tooltip: TERM_TOOLTIPS.NOT_BUILT },
 ]
 
 function StatusLegend() {
   return (
     <div className="flex flex-col gap-1.5">
       {LEGEND_ENTRIES.map((entry) => (
-        <div key={entry.label} className="flex items-center gap-2">
+        <div key={entry.label} className="flex items-center gap-2" title={entry.tooltip}>
           {entry.dashed ? (
             <span
               className="inline-flex h-2 w-2 shrink-0 items-center justify-center rounded-full border border-dashed"
@@ -466,6 +468,7 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            aria-label="Previous record"
             onClick={handlePrev}
             disabled={record === 0}
             className={cn(
@@ -491,6 +494,7 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
 
           <button
             type="button"
+            aria-label="Next record"
             onClick={handleNext}
             disabled={record === data.total - 1}
             className={cn(

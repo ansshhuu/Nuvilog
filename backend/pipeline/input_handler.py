@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import csv
 import os
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
+from pipeline.manufacturer_enrichment import _is_unsafe_target
 from pipeline.types import InputType, RawDocument
 
 OCR_MIN_CHARS_PER_PAGE = 20  # below this we assume the page is a scanned image
@@ -116,9 +118,41 @@ def _handle_text(text: str) -> RawDocument:
     )
 
 
+_MAX_URL_REDIRECTS = 5
+
+
 def _handle_url(url: str) -> RawDocument:
-    resp = requests.get(url, timeout=20, headers={"User-Agent": "Nuvilog/0.1"})
-    resp.raise_for_status()
+    """Fetch `url` for ingestion.
+
+    `url` is client-supplied (POST /api/ingest, input_type=url), so this is
+    an SSRF surface exactly like fetch_manufacturer_page's — same guard
+    (_is_unsafe_target), same manual one-hop-at-a-time redirect handling so a
+    same-origin-looking URL can't 302 into a private/metadata address after
+    the initial check passes.
+    """
+    if _is_unsafe_target(url):
+        raise ValueError("URL refused: not a public http(s) host")
+
+    current_url = url
+    for _ in range(_MAX_URL_REDIRECTS):
+        resp = requests.get(
+            current_url,
+            timeout=20,
+            headers={"User-Agent": "Nuvilog/0.1"},
+            allow_redirects=False,
+        )
+        if resp.is_redirect:
+            next_url = resp.headers.get("Location")
+            if not next_url:
+                raise ValueError("Redirect with no Location header")
+            current_url = urljoin(current_url, next_url)
+            if _is_unsafe_target(current_url):
+                raise ValueError("Redirect target refused: not a public http(s) host")
+            continue
+        resp.raise_for_status()
+        break
+    else:
+        raise ValueError(f"Too many redirects (> {_MAX_URL_REDIRECTS})")
 
     soup = BeautifulSoup(resp.text, "lxml")
     for tag in soup(["script", "style", "nav", "footer"]):

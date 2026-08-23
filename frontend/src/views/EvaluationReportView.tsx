@@ -9,6 +9,7 @@ import type {
   TierScoreDTO,
   ComparisonRowDTO,
 } from '@/lib/api-types'
+import { TERM_TOOLTIPS } from '@/lib/term-tooltips'
 import { useAsync } from '@/lib/useAsync'
 import { cn } from '@/lib/utils'
 
@@ -68,12 +69,14 @@ function isImprovement(baseline: string, enriched: string): boolean {
 function TierCard({
   tierLabel,
   tierDesc,
+  tooltip,
   score,
   total,
   subtitle,
 }: {
   tierLabel: string
   tierDesc: string
+  tooltip: string
   score: number
   total: number
   subtitle?: string
@@ -85,7 +88,7 @@ function TierCard({
   return (
     <div className="flex flex-1 flex-col gap-3 rounded border border-border bg-surface p-4">
       {/* Header: dot + "TIER N — DESCRIPTION" */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" title={tooltip}>
         <StatusDot status={status} size="sm" />
         <span className="font-sans text-2xs uppercase tracking-[0.12em] text-text-muted">
           {tierLabel} — {tierDesc}
@@ -271,6 +274,7 @@ function EvalSelect({
     <div className="relative" style={{ minWidth }}>
       <select
         id={id}
+        aria-label={prefixLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
@@ -406,12 +410,13 @@ export function EvaluationReportView() {
           <TierCard
             tierLabel="TIER 1"
             tierDesc="EXACT MATCH"
+            tooltip={TERM_TOOLTIPS.TIER_1}
             score={tier1.score}
             total={tier1.total}
           />
         ) : (
           <div className="flex flex-1 flex-col gap-3 rounded border border-border bg-surface p-4 opacity-40">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" title={TERM_TOOLTIPS.TIER_1}>
               <StatusDot status="unverified" size="sm" />
               <span className="font-sans text-2xs uppercase tracking-[0.12em] text-text-muted">
                 TIER 1 — EXACT MATCH
@@ -425,6 +430,7 @@ export function EvaluationReportView() {
         <TierCard
           tierLabel="TIER 2"
           tierDesc="RULE COMPLIANCE"
+          tooltip={TERM_TOOLTIPS.TIER_2}
           score={tier2.score}
           total={tier2.total}
         />
@@ -432,6 +438,7 @@ export function EvaluationReportView() {
         <TierCard
           tierLabel="TIER 3"
           tierDesc="HONESTY CHECK"
+          tooltip={TERM_TOOLTIPS.TIER_3}
           score={tier3.score}
           total={tier3.total}
           subtitle={`${tier3.fabrication_violations} fabrication violation${tier3.fabrication_violations === 1 ? '' : 's'}`}

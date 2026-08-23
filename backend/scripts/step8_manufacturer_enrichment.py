@@ -65,7 +65,10 @@ from pipeline.dishwasher_schema import (  # noqa: E402
 )
 from pipeline.evaluation import derive_zero_evidence_columns, evaluate_row  # noqa: E402
 from pipeline.llm_client import LLMClient  # noqa: E402
-from pipeline.manufacturer_enrichment import extract_attributes_from_page, fetch_manufacturer_page  # noqa: E402
+from pipeline.manufacturer_enrichment import (  # noqa: E402
+    extract_attributes_from_page,
+    fetch_manufacturer_page,
+)
 from pipeline.rate_limiter import RateLimitedLLM, RateLimiter  # noqa: E402
 
 RAW_INPUT_COLUMNS = ("Mfg_Part_Num", "Part_Desc", "E1_Brand", "Unilog_Brand", "DIB_Brand", "Part_Manuf")

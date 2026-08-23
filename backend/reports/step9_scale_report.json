@@ -1,0 +1,60 @@
+{
+  "rows_processed": 1000,
+  "manufacturer_resolution": {
+    "rows_processed": 1000,
+    "status_counts": {
+      "vendor_code_present": 959,
+      "no_vendor_data": 41
+    },
+    "fabricated_manufacturer_or_brand_values": 0,
+    "distinct_display_names": 76,
+    "distinct_canonical_names": 76,
+    "elapsed_sec": 0.03380850004032254,
+    "rows_per_sec": 29578.360436201703
+  },
+  "uom_fraction_patterns": {
+    "rows_scanned": 1000,
+    "rows_with_pattern": 611,
+    "rows_with_pattern_pct": 61.1,
+    "parsed_cleanly": 434,
+    "parsed_cleanly_pct": 71.03109656301146,
+    "unparsed": 177,
+    "unparsed_pct": 28.968903436988544,
+    "kind_counts": {
+      "bare_fraction": 73,
+      "unknown_unit": 168,
+      "known_unit": 331,
+      "compound": 39
+    },
+    "elapsed_sec": 0.011221199994906783,
+    "rows_per_sec": 89117.02852225184
+  },
+  "total_elapsed_sec": 0.045029700035229325,
+  "spot_checks": [
+    {
+      "mpn": "576355",
+      "part_desc": "576355 60/100/150 Led Med 50k",
+      "primary_match": {
+        "raw": "60/100",
+        "kind": "bare_fraction",
+        "clean": false,
+        "detail": "not on 1/64 grid"
+      },
+      "explanation": "60/100 has denominator 100, and 64 % 100 != 0, so it cannot land on the 1/64 grid \u2014 must report unparsed, not a guessed nearest fraction.",
+      "passed": true
+    },
+    {
+      "mpn": "37300952",
+      "part_desc": "095842 Fisch Plug Cutter 3/8\"",
+      "primary_match": {
+        "raw": "3/8",
+        "kind": "bare_fraction",
+        "clean": true,
+        "detail": "decimal=0.375"
+      },
+      "explanation": "3/8 is 24/64 reduced \u2014 exactly on the 1/64 grid, decimal value 0.375.",
+      "passed": true
+    }
+  ],
+  "honesty_statement": "This demonstrates throughput and internal consistency at full dataset scale. Field-level accuracy claims remain scoped to the 10 dishwasher rows with available ground truth."
+}

@@ -1,0 +1,10 @@
+INFO:     Will watch for changes in these directories: ['D:\\Nuvilog\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [41504] using WatchFiles
+D:\Nuvilog\backend\venv\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (7.5.1)/charset_normalizer (3.4.9) doesn't match a supported version!
+  warnings.warn(
+INFO:     Started server process [52904]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'scripts\step9a_manufacturer_scale.py'. Reloading...
+WARNING:  WatchFiles detected changes in 'scripts\step9a_manufacturer_scale.py', 'scripts\step9c_combined_report.py', 'scripts\step9b_uom_scale.py', 'auth.py', 'pipeline\desc_pattern_scanner.py', 'main.py', 'pipeline\input_handler.py', 'data\samples\test_confidence_engine.py'. Reloading...

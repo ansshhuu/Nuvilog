@@ -122,7 +122,6 @@ def show_clustering(dataset) -> bool:
         ok = False
 
     section("self-test: clustering logic must NOT merge distinct real companies")
-    cmt_makita_separate = len({c.canonical for c in synthetic_clusters if "USA" in c.canonical or "Usa" in c.canonical}) >= 1
     cmt_cluster = next((c for c in synthetic_clusters if "CMT" in "".join(c.members)), None)
     makita_cluster = next((c for c in synthetic_clusters if "Makita" in "".join(c.members)), None)
     distinct = bool(cmt_cluster and makita_cluster and cmt_cluster is not makita_cluster)

@@ -1,0 +1,132 @@
+INFO:     Will watch for changes in these directories: ['D:\\Nuvilog\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [5200] using WatchFiles
+D:\Nuvilog\backend\venv\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (7.5.1)/charset_normalizer (3.4.9) doesn't match a supported version!
+  warnings.warn(
+INFO:     Started server process [39940]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:49331 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49332 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59772 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63230 - "GET /api/description-formats?record=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60120 - "GET /api/description-formats?record=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52027 - "GET /api/description-formats?record=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65364 - "GET /api/description-formats?record=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59645 - "GET /api/description-formats?record=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62837 - "GET /api/description-formats?record=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54357 - "GET /api/description-formats?record=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52266 - "GET /api/description-formats?record=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63547 - "GET /api/description-formats?record=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50701 - "GET /api/manufacturer-enrichment?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57178 - "GET /api/manufacturer-enrichment?record=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60050 - "GET /api/manufacturer-enrichment?record=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65166 - "GET /api/manufacturer-enrichment?record=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49670 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57864 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'auth.py'. Reloading...
+INFO:     127.0.0.1:50886 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50887 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50888 - "POST /api/login HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50889 - "POST /api/login HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:50890 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'main.py'. Reloading...
+D:\Nuvilog\backend\venv\Lib\site-packages\requests\__init__.py:113: RequestsDependencyWarning: urllib3 (2.7.0) or chardet (7.5.1)/charset_normalizer (3.4.9) doesn't match a supported version!
+  warnings.warn(
+INFO:     Started server process [28336]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:50906 - "GET /api/dishwasher-schema HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50907 - "POST /api/login HTTP/1.1" 401 Unauthorized
+D:\Nuvilog\backend\venv\Lib\site-packages\jwt\api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+INFO:     127.0.0.1:50908 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50912 - "POST /api/login HTTP/1.1" 200 OK
+D:\Nuvilog\backend\venv\Lib\site-packages\jwt\api_jwt.py:368: InsecureKeyLengthWarning: The HMAC key is 20 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+INFO:     127.0.0.1:50913 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50914 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50915 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50916 - "GET /api/manufacturer-enrichment?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50917 - "GET /api/dishwasher-schema HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:54978 - "POST /api/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:54980 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54981 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54982 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64984 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65268 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65300 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/description-formats?record=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64088 - "GET /api/description-formats?record=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53483 - "GET /api/description-formats?record=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58636 - "GET /api/description-formats?record=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53751 - "GET /api/description-formats?record=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57414 - "GET /api/description-formats?record=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57825 - "GET /api/description-formats?record=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50822 - "GET /api/description-formats?record=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54760 - "GET /api/description-formats?record=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64000 - "GET /api/manufacturer-enrichment?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57250 - "GET /api/manufacturer-enrichment?record=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50725 - "GET /api/manufacturer-enrichment?record=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55804 - "GET /api/manufacturer-enrichment?record=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54400 - "GET /api/manufacturer-enrichment?record=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63856 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62257 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58188 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58189 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58190 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58191 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58192 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50531 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50533 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50535 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50536 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54163 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54165 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54167 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54168 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63075 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63076 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49957 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49958 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49959 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49960 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49961 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61447 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61448 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56254 - "POST /api/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56256 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54600 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54601 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54400 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58843 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58845 - "GET /api/dishwasher-schema HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53050 - "GET /api/manufacturer-enrichment?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59908 - "GET /api/manufacturer-enrichment?record=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59550 - "GET /api/manufacturer-enrichment?record=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56576 - "GET /api/manufacturer-enrichment?record=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51063 - "GET /api/manufacturer-enrichment?record=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65279 - "GET /api/manufacturer-enrichment?record=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57077 - "GET /api/manufacturer-enrichment?record=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52145 - "GET /api/manufacturer-enrichment?record=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50869 - "GET /api/manufacturer-enrichment?record=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58017 - "GET /api/manufacturer-enrichment?record=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58187 - "GET /api/manufacturer-enrichment?record=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49676 - "GET /api/manufacturer-enrichment?record=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50649 - "GET /api/manufacturer-enrichment?record=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58190 - "GET /api/manufacturer-enrichment?record=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49982 - "GET /api/manufacturer-enrichment?record=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59215 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56430 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56432 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55314 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59383 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58845 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62055 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58608 - "GET /api/evaluation-report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58612 - "GET /api/description-formats?record=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65514 - "POST /api/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:58973 - "POST /api/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50694 - "POST /api/login HTTP/1.1" 401 Unauthorized

@@ -82,11 +82,11 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal, Optional
 
-from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples
-from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_SCAFFOLD, is_dishwasher
+from pipeline.delivery_format import DeliveryFormat, load_worked_examples
+from pipeline.dishwasher_schema import DISHWASHER_ATTRIBUTE_SCAFFOLD
 from pipeline.inferred_rules import RULES_BY_ID
 from pipeline.llm_client import LLMClient
 from pipeline.uom_normalizer import UNIT_REGISTRY, add_unit_spacing

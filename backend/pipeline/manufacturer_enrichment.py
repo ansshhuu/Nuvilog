@@ -282,7 +282,6 @@ def extract_attributes_from_page(
     schema = _dishwasher_extraction_schema()
 
     if not page_text:
-        empty_doc = RawDocument(source_type="url", source_ref=source_url, raw_text="")
         unresolved = tuple(
             ScoredField(
                 field_name=f.name,

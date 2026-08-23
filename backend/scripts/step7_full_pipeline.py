@@ -71,8 +71,12 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
 from pipeline.dataset_loader import load_input_dataset  # noqa: E402
-from pipeline.delivery_format import DeliveryFormat, load_delivery_format, load_worked_examples  # noqa: E402
-from pipeline.description_builder import DESCRIPTION_FIELDS, generate_descriptions  # noqa: E402
+from pipeline.delivery_format import (  # noqa: E402
+    DeliveryFormat,
+    load_delivery_format,
+    load_worked_examples,
+)
+from pipeline.description_builder import generate_descriptions  # noqa: E402
 from pipeline.dishwasher_schema import (  # noqa: E402
     DISHWASHER_ATTRIBUTE_LABELS,
     blank_dishwasher_scaffold,

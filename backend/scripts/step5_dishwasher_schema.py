@@ -41,7 +41,6 @@ if str(BACKEND_DIR) not in sys.path:
 from pipeline.dataset_loader import load_input_dataset  # noqa: E402
 from pipeline.delivery_format import load_worked_examples  # noqa: E402
 from pipeline.dishwasher_schema import (  # noqa: E402
-    DISHWASHER_ATTRIBUTE_LABELS,
     blank_dishwasher_scaffold,
     build_dishwasher_attribute_slots,
     is_dishwasher,

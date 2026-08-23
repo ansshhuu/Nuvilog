@@ -2,6 +2,7 @@ import {
   BarChart2,
   GitBranch,
   Globe,
+  LogOut,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -36,9 +37,10 @@ export const NAV_ITEMS: NavItem[] = [
 export interface SidebarProps {
   activeItem: NavItemId
   onNavigate?: (id: NavItemId) => void
+  onLogout?: () => void
 }
 
-export function Sidebar({ activeItem, onNavigate }: SidebarProps) {
+export function Sidebar({ activeItem, onNavigate, onLogout }: SidebarProps) {
   return (
     <nav
       aria-label="Main"
@@ -81,6 +83,18 @@ export function Sidebar({ activeItem, onNavigate }: SidebarProps) {
           )
         })}
       </ul>
+
+      <div className="flex flex-col items-center border-t border-border py-4">
+        <button
+          type="button"
+          title="Sign out"
+          aria-label="Sign out"
+          onClick={onLogout}
+          className="flex h-11 w-full items-center justify-center text-text-muted transition-colors hover:text-text-primary"
+        >
+          <LogOut size={14} strokeWidth={1.75} />
+        </button>
+      </div>
     </nav>
   )
 }

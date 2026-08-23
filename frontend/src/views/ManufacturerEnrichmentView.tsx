@@ -13,6 +13,7 @@ import {
 
 import { StatusDot } from '@/components/StatusDot'
 import { fetchManufacturerEnrichment } from '@/lib/api'
+import { TERM_TOOLTIPS } from '@/lib/term-tooltips'
 import { useAsync } from '@/lib/useAsync'
 import { cn } from '@/lib/utils'
 
@@ -174,6 +175,7 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
         <div className="flex gap-2">
           <button
             type="button"
+            aria-label="Previous record"
             className="flex h-8 w-8 items-center justify-center rounded-sm border border-border hover:bg-surface disabled:opacity-50 transition-colors"
             onClick={handlePrev}
             disabled={data.record === 0}
@@ -182,6 +184,7 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
           </button>
           <button
             type="button"
+            aria-label="Next record"
             className="flex h-8 w-8 items-center justify-center rounded-sm border border-border hover:bg-surface disabled:opacity-50 transition-colors"
             onClick={handleNext}
             disabled={data.record === data.total - 1}
@@ -305,7 +308,7 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
                     </td>
                     <td className="px-4 py-3 align-top">
                       {field.confidence === 'verbatim' ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" title={TERM_TOOLTIPS.VERBATIM}>
                           <StatusDot status="verbatim" size="sm" />
                           <span className="text-status-verbatim font-medium">VERBATIM</span>
                         </div>

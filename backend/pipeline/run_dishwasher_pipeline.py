@@ -86,7 +86,7 @@ from typing import Optional
 
 import pandas as pd
 
-from pipeline.dataset_loader import BRAND_COLUMNS, _MANUF_CODE_RE, _null_placeholders
+from pipeline.dataset_loader import _MANUF_CODE_RE, BRAND_COLUMNS, _null_placeholders
 from pipeline.delivery_format import DeliveryFormat, load_delivery_format
 from pipeline.description_builder import generate_descriptions
 from pipeline.dishwasher_schema import blank_dishwasher_scaffold, is_dishwasher

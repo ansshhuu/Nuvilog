@@ -1,10 +1,12 @@
-import { ChevronDown, FileOutput, Moon, Sun } from 'lucide-react'
+import { ChevronDown, FileOutput } from 'lucide-react'
 
+import { ThemeToggle } from '@/components/ThemeToggle'
 import type { Theme } from '@/hooks/useTheme'
 
 export interface TopBarProps {
   project: string
-  user: string
+  email: string
+  role: string
   theme: Theme
   onToggleTheme: () => void
 }
@@ -43,9 +45,21 @@ function Selector({ label, value }: SelectorProps) {
   )
 }
 
-export function TopBar({ project, user, theme, onToggleTheme }: TopBarProps) {
-  const isLight = theme === 'light'
+/** The real logged-in identity — unlike Selector, not a disabled stand-in. */
+function Identity({ label, value }: SelectorProps) {
+  return (
+    <span className="flex items-center gap-2 px-2 py-1 text-text-muted">
+      <span className="font-sans text-2xs uppercase tracking-[0.12em]">
+        {label}:
+      </span>
+      <span className="font-mono text-2xs tracking-[0.06em] text-text-primary">
+        {value}
+      </span>
+    </span>
+  )
+}
 
+export function TopBar({ project, email, role, theme, onToggleTheme }: TopBarProps) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background pl-8 pr-6">
       <span className="font-sans text-base font-medium uppercase tracking-[0.32em] text-text-primary">
@@ -54,20 +68,13 @@ export function TopBar({ project, user, theme, onToggleTheme }: TopBarProps) {
 
       <div className="flex items-center gap-6">
         <Selector label="Project" value={project} />
-        <Selector label="User" value={user} />
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          aria-label={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
-          title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+        <Identity label="Role" value={role} />
+        <Identity label="User" value={email} />
+        <ThemeToggle
+          theme={theme}
+          onToggleTheme={onToggleTheme}
           className="ml-2 flex h-8 w-8 items-center justify-center text-text-muted transition-colors hover:text-text-primary"
-        >
-          {isLight ? (
-            <Moon size={13} strokeWidth={1.75} />
-          ) : (
-            <Sun size={13} strokeWidth={1.75} />
-          )}
-        </button>
+        />
         <button
           type="button"
           disabled
