@@ -12,14 +12,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from auth import issue_token
 from models.db import Product, ProductField, ValidationFlag
 
 
 @pytest.fixture
 def client(monkeypatch, fake_llm, supabase_available):
-    """App client with the LLM replaced by the canned fixture response."""
+    """App client with the LLM replaced by the canned fixture response.
+
+    Every route the suite hits sits behind `require_auth`, so the client
+    carries a real signed session token the way a logged-in browser would.
+    """
     monkeypatch.setattr(main, "LLMClient", lambda *a, **k: fake_llm)
-    with TestClient(main.app) as test_client:
+    token = issue_token("test@example.com", "ADMIN")
+    with TestClient(main.app, headers={"Authorization": f"Bearer {token}"}) as test_client:
         yield test_client
 
 

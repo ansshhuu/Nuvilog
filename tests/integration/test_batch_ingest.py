@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from auth import issue_token
 from models.db import Product, ProductField, SupabaseSession, ValidationFlag
 from pipeline.batch_runner import BatchItem, run_batch, summarize
 
@@ -225,12 +226,15 @@ def test_one_bad_item_does_not_cost_the_other_four(five_items, llm_factory, db_s
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def client(monkeypatch, llm_factory, supabase_available):
+    """App client carrying a real signed session token — every route the
+    batch endpoint tests hit sits behind `require_auth`."""
     monkeypatch.setattr(main, "LLMClient", lambda *a, **k: llm_factory())
     # The endpoint builds its own limiter, so the rate has to be lifted the way
     # a deployment would lift it — through the environment. That keeps the real
     # configuration path under test instead of bypassing it.
     monkeypatch.setenv("NUVILOG_GEMINI_RPM", str(_UNTHROTTLED))
-    with TestClient(main.app) as test_client:
+    token = issue_token("test@example.com", "ADMIN")
+    with TestClient(main.app, headers={"Authorization": f"Bearer {token}"}) as test_client:
         yield test_client
 
 
