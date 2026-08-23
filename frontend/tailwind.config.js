@@ -51,15 +51,6 @@ export default {
         mono: ['JetBrains Mono', 'IBM Plex Mono', 'ui-monospace', 'monospace'],
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
-      keyframes: {
-        'post-login-progress': {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(300%)' },
-        },
-      },
-      animation: {
-        'post-login-progress': 'post-login-progress 0.9s ease-in-out infinite',
-      },
       // Hard cap: nothing in this app is rounder than 4px.
       borderRadius: {
         none: '0px',
