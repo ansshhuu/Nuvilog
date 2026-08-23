@@ -12,7 +12,10 @@ import os
 import time
 
 import jwt
+from dotenv import load_dotenv
 from fastapi import Header, HTTPException
+
+load_dotenv()
 
 # No fallback: a guessable default would let anyone forge an admin token by
 # reading this source file, which defeats the whole point of signing it.
