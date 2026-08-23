@@ -52,7 +52,6 @@ function parseFractionNumerator(value: string): number {
   return isNaN(n) ? 0 : n
 }
 
-/** True only when the enriched value is strictly greater than baseline. */
 function isImprovement(baseline: string, enriched: string): boolean {
   return parseFractionNumerator(enriched) > parseFractionNumerator(baseline)
 }
@@ -146,7 +145,6 @@ function ComparisonTable({ row }: { row: ComparisonRowDTO }) {
 
   return (
     <div className="overflow-hidden rounded border border-border bg-surface">
-      {/* Column headers */}
       <div
         className="grid border-b border-border"
         style={{ gridTemplateColumns: '1fr auto 36px auto' }}
@@ -165,7 +163,6 @@ function ComparisonTable({ row }: { row: ComparisonRowDTO }) {
         </div>
       </div>
 
-      {/* Data rows */}
       {metrics.map((m, idx) => {
         const improved = isImprovement(m.baseline, m.enriched)
         return (
@@ -187,7 +184,6 @@ function ComparisonTable({ row }: { row: ComparisonRowDTO }) {
               <span className="font-mono text-xs text-text-primary">{m.baseline}</span>
             </div>
 
-            {/* Arrow divider */}
             <div className="flex items-center justify-center py-3">
               <span className="font-sans text-sm text-text-muted">→</span>
             </div>

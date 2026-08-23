@@ -373,10 +373,8 @@ def _source_fields_for_row(
     base = _FORMAT_SOURCE_FIELDS.get(field_name, [])
     result = []
     for src_field, base_confidence in base:
-        # Whether this field actually has a value in this row.
         value = row.get(src_field, "").strip()
         if not is_known and src_field not in ("Mfg_Part_Num", "Part_Desc"):
-            # Unknown rows: only the 2 raw input columns are trusted.
             status = "unverified"
         elif value:
             status = _CONFIDENCE_TO_STATUS.get(base_confidence, "unverified")
@@ -395,14 +393,10 @@ def _format_rule_payload(field_name: str, specs: dict) -> dict:
     lo, hi = _FORMAT_LIMITS.get(field_name, (None, None))
     limit_str = _limit_display(field_name)
 
-    # Derive worked example from the known rows' actual generated text.
-    # (The CSV row for PDSH4816AF is index 1 in the data, which has real values.)
-
     casing = "ALL CAPS" if spec.uppercase else "Title Case / Mixed"
     rule_text = spec.rule
-    confidence = spec.confidence  # "high" | "medium" | "low"
+    confidence = spec.confidence
 
-    # Only HIGH-confidence rules are presented as authoritative per spec.
     is_authoritative = confidence == "high"
 
     return {
@@ -467,13 +461,11 @@ def get_description_formats(record: int = 0, _auth: dict = Depends(require_auth)
     # is_known: only the 2 rows with real MANUFACTURER_NAME have full ground truth.
     is_known = bool((row.get("MANUFACTURER_NAME") or "").strip())
 
-    # Category is always DISHWASHER for all 10 rows in this file.
     category = "DISHWASHER"
 
     # Build format specs from the real backend rules (not hand-typed).
     specs = build_format_specs()
 
-    # Assemble the 5-format cards.
     formats = []
     for field_name in DESCRIPTION_FIELDS:
         text = (row.get(field_name) or "").strip()

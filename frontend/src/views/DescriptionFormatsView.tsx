@@ -169,7 +169,6 @@ function FormatCard({
       role="button"
       aria-pressed={focused}
     >
-      {/* Header row */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <StatusDot status={dotStatus} size="md" />
@@ -189,7 +188,6 @@ function FormatCard({
         </div>
       </div>
 
-      {/* Body */}
       {fmt.generated ? (
         <p className="font-mono text-xs text-text-primary leading-relaxed">
           {fmt.text}
@@ -231,12 +229,10 @@ function GenerationRulePanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Section heading */}
       <span className="font-sans text-2xs uppercase tracking-[0.14em] text-text-muted">
         Generation Rule
       </span>
 
-      {/* Focused field name */}
       <span
         className="font-mono text-sm font-semibold tracking-[0.05em]"
         style={{ color: 'var(--color-accent)' }}
@@ -244,7 +240,6 @@ function GenerationRulePanel({
         {fmt.field}
       </span>
 
-      {/* Rule metadata */}
       <div className="flex flex-col gap-2">
         <RuleLine label="CHAR LIMIT" value={rule.char_limit} />
         <RuleLine label="RULE" value={rule.casing} />
@@ -283,7 +278,6 @@ function GenerationRulePanel({
         </div>
       </div>
 
-      {/* Confidence source fields */}
       <div className="flex flex-col gap-2 mt-2">
         <span className="font-sans text-2xs uppercase tracking-[0.14em] text-text-muted">
           Confidence (Source Fields)
@@ -398,7 +392,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
       <div className="flex min-h-0 flex-1 gap-0">
         {/* Left column — header + 5 cards */}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6 pr-4">
-          {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <h1 className="font-sans text-xl font-semibold uppercase tracking-[0.18em] text-text-primary">
@@ -411,7 +404,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
               </p>
             </div>
 
-            {/* Category pill */}
             <span
               className="shrink-0 self-start px-2.5 py-1 font-sans text-2xs font-semibold uppercase tracking-[0.14em]"
               style={{
@@ -423,7 +415,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
             </span>
           </div>
 
-          {/* 5 format cards */}
           <div className="flex flex-col gap-3">
             {data.formats.map((fmt, idx) => (
               <FormatCard
@@ -436,7 +427,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
           </div>
         </div>
 
-        {/* Vertical divider */}
         <div className="w-px shrink-0 bg-border" />
 
         {/* Right panel — generation rule + legend */}
@@ -454,7 +444,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
       {/* Bottom bar                                                        */}
       {/* ---------------------------------------------------------------- */}
       <div className="flex h-14 shrink-0 items-center justify-between border-t border-border px-6">
-        {/* Back link */}
         <button
           type="button"
           onClick={onBack}
@@ -464,7 +453,6 @@ export function DescriptionFormatsView({ onBack }: { onBack?: () => void }) {
           Back to Evaluation Report
         </button>
 
-        {/* Pager */}
         <div className="flex items-center gap-3">
           <button
             type="button"

@@ -120,7 +120,6 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          {/* Status Pill */}
           {data.status === 'success' && (
             <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1 bg-surface shadow-sm">
               <StatusDot status="verbatim" size="sm" />
@@ -199,14 +198,12 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
       {/* ---------------------------------------------------------------- */}
       <div className="flex min-h-0 flex-1">
         
-        {/* LEFT COLUMN: Source Page */}
         <div className="flex min-h-0 flex-1 flex-col border-r border-border bg-background p-6">
           <span className="font-sans text-xs uppercase tracking-[0.14em] text-text-muted mb-4 shrink-0">
             Source Page
           </span>
           
           <div className="flex min-h-0 flex-1 flex-col border border-border bg-surface rounded-sm shadow-sm overflow-hidden">
-            {/* Browser Chrome */}
             <div className="flex items-center gap-4 border-b border-border bg-background px-4 py-2 shrink-0">
               <div className="flex items-center gap-2 text-text-muted">
                 <ArrowLeft size={14} />
@@ -220,7 +217,6 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
               </div>
             </div>
 
-            {/* Content Area */}
             <div className="flex-1 overflow-auto p-4 bg-background">
               {data.status === 'success' && data.page_text_excerpt ? (
                 <div className="font-mono text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
@@ -248,7 +244,6 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
               )}
             </div>
 
-            {/* Footer Row */}
             <div className="flex items-center justify-between border-t border-border bg-surface px-4 py-2 shrink-0">
               <span className="font-sans text-xs text-text-muted">
                 {data.status === 'not_attempted' ? 'No Source' : 'Manufacturer Site'}
@@ -263,7 +258,6 @@ export function ManufacturerEnrichmentView({ onBack }: { onBack?: () => void }) 
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Extracted Attributes */}
         <div className="flex min-h-0 w-[500px] shrink-0 flex-col bg-surface p-6">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <span className="font-sans text-xs uppercase tracking-[0.14em] text-text-muted">
