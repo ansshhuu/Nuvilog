@@ -16,10 +16,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from auth import issue_token
 from fastapi.testclient import TestClient
 
 import main
-from auth import issue_token
 from models.db import Product, ProductField, SupabaseSession, ValidationFlag
 from pipeline.batch_runner import BatchItem, run_batch, summarize
 
