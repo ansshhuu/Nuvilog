@@ -33,6 +33,10 @@ jobs:
           pip install -r backend/requirements-dev.txt
 
       - name: Run unit tests
+        env:
+          # Only signs test JWTs — not a real credential, so a fixed CI value
+          # is fine. backend/auth.py refuses to import without one set.
+          SESSION_SECRET: ci-test-session-secret-not-for-production-use
         run: pytest tests/unit -v --cov=backend --cov-report=term-missing
 
       # GitHub sets CI=true, which makes tests/conftest.py fail rather than skip
@@ -43,6 +47,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SESSION_SECRET: ci-test-session-secret-not-for-production-use
         run: pytest tests/integration -v --cov=backend --cov-report=term-missing
 
       - name: Lint with ruff
