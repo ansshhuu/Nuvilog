@@ -1,14 +1,14 @@
 # Nuvilog
 
-Turns Unilog's raw catalog rows into structured, evidence-backed dishwasher product records — and refuses to guess what it can't verify.
+Turns Unilog's raw catalog rows into structured, evidence-backed dishwasher product records and refuses to guess what it can't verify.
 
 ## What it does
 
-Nuvilog ingests Unilog's raw 1000-row product catalog and produces a structured, enriched dishwasher product record per row: UOM/fraction normalization, a manufacturer/brand honesty layer, a 15-label attribute scaffold, manufacturer-page enrichment, and a generated commerce description. Every stage is scored against a real evaluation harness — not eyeballed. Two rows with verified manufacturer ground truth are scored for accuracy; every other row is scored on structural and honesty checks only, because there's nothing to compare it against.
+Nuvilog ingests Unilog's raw 1000-row product catalog and produces a structured, enriched dishwasher product record per row: UOM/fraction normalization, a manufacturer/brand honesty layer, a 15-label attribute scaffold, manufacturer-page enrichment, and a generated commerce description. Every stage is scored against a real evaluation harnessnot eyeballed. Two rows with verified manufacturer ground truth are scored for accuracy; every other row is scored on structural and honesty checks only, because there's nothing to compare it against.
 
 ## Why it's different
 
-- Confidence is scored from real evidence (source-text matches, verified manufacturer-page fetches) — never an LLM rating its own output
+- Confidence is scored from real evidence (source-text matches, verified manufacturer-page fetches) never an LLM rating its own output
 - Every gap is explicitly flagged as unresolved, never silently guessed or defaulted
 - Self-tested against real ground truth at every pipeline stage, not just internal consistency checks
 
@@ -40,7 +40,7 @@ Pulled directly from `backend/reports/*.json` — regenerate with the commands i
 
 ## Scope
 
-The pipeline is proven end-to-end on 10 real dishwasher rows, 2 of which (`PDSH4816AF`, `WDTS7024RZ`) have verified manufacturer ground truth to score against; the other 8 are scored structurally only, since there's nothing to compare them to. The remaining appliance sub-types found in the same dataset — range, washer, microwave, freezer, cooktop (31 more real rows total) — are explicitly marked `NOT_BUILT` in [`pipeline/inferred_rules.py`](backend/pipeline/inferred_rules.py) rather than run through the dishwasher scaffold: the 15-label attribute structure was derived from and validated against dishwasher rows only, and applying it to a different appliance category without evidence would be exactly the kind of fabrication this project refuses to do.
+The pipeline is proven end-to-end on 10 real dishwasher rows, 2 of which (`PDSH4816AF`, `WDTS7024RZ`) have verified manufacturer ground truth to score against; the other 8 are scored structurally only, since there's nothing to compare them to. The remaining appliance sub-types found in the same dataset range, washer, microwave, freezer, cooktop (31 more real rows total) are explicitly marked `NOT_BUILT` in [`pipeline/inferred_rules.py`](backend/pipeline/inferred_rules.py) rather than run through the dishwasher scaffold: the 15-label attribute structure was derived from and validated against dishwasher rows only, and applying it to a different appliance category without evidence would be exactly the kind of fabrication this project refuses to do.
 
 ## Pipeline
 
@@ -120,4 +120,4 @@ python backend/scripts/step6_7_full_run.py
 
 ## Security
 
-All non-login API routes are gated behind session-token auth ([`backend/auth.py`](backend/auth.py)), and outbound manufacturer-page fetches are SSRF-guarded — refusing anything but a plain `http(s)` request to a public host ([`pipeline/manufacturer_enrichment.py`](backend/pipeline/manufacturer_enrichment.py)).
+All non-login API routes are gated behind session-token auth ([`backend/auth.py`](backend/auth.py)), and outbound manufacturer-page fetches are SSRF-guarded  refusing anything but a plain `http(s)` request to a public host ([`pipeline/manufacturer_enrichment.py`](backend/pipeline/manufacturer_enrichment.py)).
